@@ -59,22 +59,24 @@ ${contextHint}
 
 ${searchInstructions}
 
-If you can't find reliable information, be honest — do not invent details.
+IMPORTANT RULES:
+- Do not invent or guess any information — if you can't find it, say so.
+- For URLs: copy them VERBATIM from search results. Never construct a URL from a name or guess what a profile URL might be. If you didn't see the exact URL in a search result, omit that link entirely.
 
 Return a JSON object with these exact fields:
 {
   "email": "${attendee.email}",
   "name": "<full name, or best guess from email/meeting title if not found>",
-  "bio": "<2-4 sentences: include their LinkedIn 'About' summary or similar profile summary if found, otherwise a professional bio synthesized from what you found>",
+  "bio": "<2-4 sentences: use their LinkedIn 'About' section or profile summary verbatim if found, otherwise synthesize from what you read>",
   "role": "<current title and company, or 'Unknown'>",
   "recentActivity": ["<item 1>", "<item 2>", "<item 3>"],
   "talkingPoints": ["<point 1>", "<point 2>", "<point 3>"],
   "links": [
-    { "label": "LinkedIn", "url": "<LinkedIn profile URL if found, else omit this entry>" },
-    { "label": "Company", "url": "<company website or profile page if found, else omit>" },
-    { "label": "<other relevant label>", "url": "<any other relevant URL: GitHub, Twitter, personal site, news article>" }
+    { "label": "LinkedIn", "url": "<exact LinkedIn URL from search results — only if you saw it>" },
+    { "label": "Company", "url": "<exact company page URL from search results — only if you saw it>" },
+    { "label": "<label>", "url": "<any other exact URL you found: GitHub, Twitter, blog, news article>" }
   ]
 }
 
-Only include links you actually found — do not fabricate URLs. Omit any link entry where you don't have a real URL.`;
+Omit any link object where you do not have the real URL from search results.`;
 }
