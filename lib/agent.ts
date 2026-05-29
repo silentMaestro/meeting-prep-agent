@@ -42,6 +42,7 @@ async function researchAttendee(
         role: "Unknown",
         recentActivity: [],
         talkingPoints: [],
+        links: [],
       };
     }
 
@@ -71,6 +72,7 @@ async function researchAttendee(
     role: "Unknown",
     recentActivity: [],
     talkingPoints: [],
+    links: [],
   };
 }
 

@@ -20,6 +20,7 @@ export interface AttendeeResearch {
   role: string;
   recentActivity: string[];
   talkingPoints: string[];
+  links: { label: string; url: string }[];
 }
 
 export interface CompanyNews {

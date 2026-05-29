@@ -65,9 +65,16 @@ Return a JSON object with these exact fields:
 {
   "email": "${attendee.email}",
   "name": "<full name, or best guess from email/meeting title if not found>",
-  "bio": "<2-3 sentence professional bio, or 'No public profile found' if unavailable>",
+  "bio": "<2-4 sentences: include their LinkedIn 'About' summary or similar profile summary if found, otherwise a professional bio synthesized from what you found>",
   "role": "<current title and company, or 'Unknown'>",
   "recentActivity": ["<item 1>", "<item 2>", "<item 3>"],
-  "talkingPoints": ["<point 1>", "<point 2>", "<point 3>"]
-}`;
+  "talkingPoints": ["<point 1>", "<point 2>", "<point 3>"],
+  "links": [
+    { "label": "LinkedIn", "url": "<LinkedIn profile URL if found, else omit this entry>" },
+    { "label": "Company", "url": "<company website or profile page if found, else omit>" },
+    { "label": "<other relevant label>", "url": "<any other relevant URL: GitHub, Twitter, personal site, news article>" }
+  ]
+}
+
+Only include links you actually found — do not fabricate URLs. Omit any link entry where you don't have a real URL.`;
 }
