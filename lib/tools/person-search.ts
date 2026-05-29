@@ -5,49 +5,66 @@ export const personSearchTool = {
   name: "web_search",
 };
 
+const PERSONAL_DOMAINS = new Set([
+  "gmail.com", "yahoo.com", "hotmail.com", "outlook.com",
+  "icloud.com", "me.com", "protonmail.com", "live.com",
+]);
+
 function isPersonalEmail(domain: string): boolean {
-  return ["gmail.com", "yahoo.com", "hotmail.com", "outlook.com", "icloud.com", "me.com", "protonmail.com"].includes(domain);
+  return PERSONAL_DOMAINS.has(domain);
 }
 
 function humanizeName(emailUser: string): string {
-  // "john.smith" -> "John Smith", "jsmith" -> "Jsmith"
   return emailUser
     .replace(/[._-]+/g, " ")
     .replace(/\b\w/g, (c) => c.toUpperCase())
     .trim();
 }
 
-export function personResearchPrompt(attendee: Attendee): string {
+function extractNameHints(title: string, description: string): string {
+  if (!title && !description) return "";
+  return `Meeting title: "${title}"${description ? `\nMeeting description: "${description}"` : ""}
+
+Use the meeting title and description as clues — they may contain the person's name, company, or role (e.g. "Call with Jane from Acme", "Intro: Bob Smith - CTO"). Extract any names or companies you find and prioritize searching for those.`;
+}
+
+export function personResearchPrompt(
+  attendee: Attendee,
+  meetingContext: { title: string; description?: string }
+): string {
   const domain = attendee.email.split("@")[1];
   const emailUser = attendee.email.split("@")[0];
   const personal = isPersonalEmail(domain);
-
-  const name = attendee.displayName ?? (personal ? humanizeName(emailUser) : humanizeName(emailUser));
+  const name = attendee.displayName ?? humanizeName(emailUser);
   const companyHint = personal ? "" : `Company domain: ${domain}`;
+  const contextHint = extractNameHints(meetingContext.title, meetingContext.description ?? "");
 
   const searchInstructions = personal
-    ? `This person uses a personal email. Search for:
-1. "${name}" site:linkedin.com
-2. "${name}" professional profile OR portfolio
-3. "${name}" github OR twitter OR blog`
-    : `Search for:
-1. "${name}" site:linkedin.com
-2. "${name}" ${domain} — to find their company profile page
-3. "${name}" — recent news, articles, or talks`;
+    ? `This person uses a personal email. Search strategies:
+1. Use any name or company clues from the meeting title/description first
+2. Search "${name}" site:linkedin.com
+3. Search "${name}" professional profile OR portfolio OR github`
+    : `Search strategies:
+1. Use any name or company clues from the meeting title/description first
+2. Search "${name}" site:linkedin.com
+3. Search "${name}" ${domain} to find their company profile
+4. Search "${name}" for recent articles, talks, or news`;
 
   return `Research this person I have an upcoming meeting with:
 Name: ${name}
 Email: ${attendee.email}
 ${companyHint}
 
+${contextHint}
+
 ${searchInstructions}
 
-If you can't find reliable information, be honest and say so — do not invent details.
+If you can't find reliable information, be honest — do not invent details.
 
 Return a JSON object with these exact fields:
 {
   "email": "${attendee.email}",
-  "name": "<full name, or best guess from email if not found>",
+  "name": "<full name, or best guess from email/meeting title if not found>",
   "bio": "<2-3 sentence professional bio, or 'No public profile found' if unavailable>",
   "role": "<current title and company, or 'Unknown'>",
   "recentActivity": ["<item 1>", "<item 2>", "<item 3>"],

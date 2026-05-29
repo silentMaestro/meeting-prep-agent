@@ -8,10 +8,11 @@ function getClient() {
 }
 
 async function researchAttendee(
-  attendee: { email: string; displayName?: string }
+  attendee: { email: string; displayName?: string },
+  meetingContext: { title: string; description?: string }
 ): Promise<AttendeeResearch> {
   const messages: Anthropic.MessageParam[] = [
-    { role: "user", content: personResearchPrompt(attendee) },
+    { role: "user", content: personResearchPrompt(attendee, meetingContext) },
   ];
 
   while (true) {
@@ -115,7 +116,7 @@ export async function* runResearchAgent(
     yield { type: "status", message: `Researching ${name}...` };
 
     try {
-      const result = await researchAttendee(attendee);
+      const result = await researchAttendee(attendee, { title: meeting.title, description: meeting.description });
       attendeeResults.push(result);
       yield { type: "attendee_done", attendee: result };
     } catch (err: any) {
