@@ -3,12 +3,15 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "unset ANTHROPIC_API_KEY ANTHROPIC_BASE_URL && next dev",
     "build": "next build",
     "start": "next start"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.100.1",
+    "googleapis": "^173.0.0",
     "next": "16.2.6",
+    "next-auth": "^4.24.14",
     "react": "19.2.4",
     "react-dom": "19.2.4"
   },
