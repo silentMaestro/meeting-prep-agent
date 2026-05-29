@@ -46,37 +46,17 @@ async function researchAttendee(
       };
     }
 
-    // For the built-in web_search tool, Anthropic executes the search and
-    // returns results in the response content. Pass everything through as-is
-    // so Claude sees the real results rather than a placeholder.
-    const toolUseBlocks = response.content.filter(
-      (b): b is Anthropic.ToolUseBlock => b.type === "tool_use"
+    // web_search uses server_tool_use/web_search_tool_result block types,
+    // not the client-side tool_use/tool_result types.
+    const serverToolUseBlocks = response.content.filter(
+      (b) => b.type === "server_tool_use"
     );
 
-    if (toolUseBlocks.length === 0) break;
+    if (serverToolUseBlocks.length === 0) break;
 
+    // Pass the full response through — Anthropic already ran the search and
+    // embedded results as web_search_tool_result blocks in the content.
     messages.push({ role: "assistant", content: response.content });
-
-    // web_search is a server-side tool — Anthropic runs the search and
-    // returns results as "web_search_tool_result" blocks in the same response.
-    // Collect the IDs that already have results so we don't double-add them.
-    const resultIds = new Set(
-      response.content
-        .filter((b) => b.type === "web_search_tool_result")
-        .map((b) => (b as any).tool_use_id as string)
-    );
-
-    const missingResults = toolUseBlocks.filter((b) => !resultIds.has(b.id));
-    if (missingResults.length > 0) {
-      messages.push({
-        role: "user",
-        content: missingResults.map((block) => ({
-          type: "tool_result" as const,
-          tool_use_id: block.id,
-          content: "No results returned.",
-        })),
-      });
-    }
   }
 
   const name = attendee.displayName ?? attendee.email.split("@")[0];

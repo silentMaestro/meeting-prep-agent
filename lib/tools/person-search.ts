@@ -61,22 +61,24 @@ ${searchInstructions}
 
 IMPORTANT RULES:
 - Do not invent or guess any information — if you can't find it, say so.
-- For URLs: copy them VERBATIM from search results. Never construct a URL from a name or guess what a profile URL might be. If you didn't see the exact URL in a search result, omit that link entirely.
+- There may be multiple people with this name. Use the company/context clues to pick the most likely match, and list ALL LinkedIn profiles you found as separate link entries so the user can verify.
+- For URLs: copy them VERBATIM character-for-character from search results. Never construct or infer a URL — LinkedIn profile slugs are not predictable from names. If you didn't see the exact URL in a search result, omit that link.
 
 Return a JSON object with these exact fields:
 {
   "email": "${attendee.email}",
   "name": "<full name, or best guess from email/meeting title if not found>",
-  "bio": "<2-4 sentences: use their LinkedIn 'About' section or profile summary verbatim if found, otherwise synthesize from what you read>",
-  "role": "<current title and company, or 'Unknown'>",
+  "bio": "<2-4 sentences: use their LinkedIn 'About' section or profile summary verbatim if found, otherwise synthesize from what you read. If multiple people matched, note the ambiguity.>",
+  "role": "<current title and company of the most likely match, or 'Unknown'>",
   "recentActivity": ["<item 1>", "<item 2>", "<item 3>"],
   "talkingPoints": ["<point 1>", "<point 2>", "<point 3>"],
   "links": [
-    { "label": "LinkedIn", "url": "<exact LinkedIn URL from search results — only if you saw it>" },
-    { "label": "Company", "url": "<exact company page URL from search results — only if you saw it>" },
-    { "label": "<label>", "url": "<any other exact URL you found: GitHub, Twitter, blog, news article>" }
+    { "label": "LinkedIn (best match)", "url": "<exact LinkedIn URL you found for the most likely match>" },
+    { "label": "LinkedIn (other match)", "url": "<exact URL for any other LinkedIn profiles found with same name>" },
+    { "label": "Company", "url": "<exact company page URL>" },
+    { "label": "<label>", "url": "<any other verbatim URL: GitHub, Twitter, blog, news>" }
   ]
 }
 
-Omit any link object where you do not have the real URL from search results.`;
+Omit any link object where you don't have the real verbatim URL from search results.`;
 }
