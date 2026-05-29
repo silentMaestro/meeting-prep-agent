@@ -1,6 +1,6 @@
 # Pocket PA — Roadmap
 
-The current app does one thing: research attendees before a meeting. The vision is broader — a PA that handles the full lifecycle of a professional relationship and workday, not just pre-meeting prep.
+The current app does one thing: research attendees before a meeting. The vision is a PA that handles the full lifecycle of a professional relationship and workday — and is always in your pocket.
 
 ---
 
@@ -14,134 +14,226 @@ The current app does one thing: research attendees before a meeting. The vision 
 
 ---
 
-## Phase 2 — Post-Meeting Intelligence
+## Immediate Next Steps (brainstorm)
 
-The meeting happened. Now what?
+These are the concrete decisions to make before building anything else.
 
-### Action Item Extraction
-After a meeting, paste in your notes or a transcript. The agent reads it and extracts:
-- Committed action items (who owns what, by when)
-- Open questions that need follow-up
-- Decisions made
+### 1. Database Schema Design
+Everything downstream depends on this. Get it right once.
 
-Stores them per-meeting, surfaces overdue items on the dashboard.
+Questions to answer:
+- Do we store one user (you) or build multi-tenant from the start?
+- How do we model a "contact" — by email, by LinkedIn URL, by name+company?
+- Do we version contact data over time (e.g. track when someone changed jobs)?
+- Where do meeting notes live — attached to the calendar event ID, or to a contact?
+- How granular are action items — just free text, or structured (owner, due date, status)?
+- Do we want full-text search, semantic search (vectors), or both?
 
-### Follow-Up Email Drafting
-Based on the meeting brief + your notes, draft a follow-up email to each attendee. Knows context: what was discussed, what was agreed, what you need from them. One-click copy or send via Gmail API.
+Proposed tables to discuss:
+```
+users
+contacts          (email, name, company, role, linkedin_url, notes, last_met_at)
+meetings          (gcal_event_id, title, start_at, brief_json, notes, summary)
+meeting_contacts  (meeting_id, contact_id)  ← join table
+action_items      (meeting_id, contact_id, description, due_date, status, owner)
+attachments       (meeting_id, drive_file_id, title, extracted_text)
+digests           (user_id, sent_at, content_json)
+```
 
-### Meeting Notes Summariser
-Paste a raw transcript or voice memo. Get back a clean structured summary: context, decisions, actions, next steps. Attached to the meeting record permanently.
-
----
-
-## Phase 3 — Relationship Memory
-
-Right now every meeting starts cold. A PA remembers people.
-
-### Contact Intelligence Layer
-Per person, persist across meetings:
-- Every meeting you've had with them (date, topic, outcome)
-- Their role changes over time
-- Topics they care about (extracted from briefs + your notes)
-- Last touchpoint and what was discussed
-
-When you meet them again, the brief shows history: "Last met 3 months ago, you were discussing X, they were about to launch Y."
-
-### Relationship Health Signals
-Flag contacts you haven't spoken to in a while. Surface "warm up before meeting" alerts if you haven't interacted with someone in 90+ days. Think lightweight CRM, not Salesforce.
-
-### Personal CRM Export
-Export your contact intelligence as a CSV or sync to HubSpot/Notion. Every relationship enriched automatically just by using the app.
+Stack recommendation: **Supabase** (Postgres + pgvector + auth storage + file storage, free tier, one-click setup).
 
 ---
 
-## Phase 4 — Daily Briefing
+### 2. Mobile-First UI Redesign
 
-The app proactively briefs you, not the other way around.
+The current layout is desktop-only (two-column, sidebar). On mobile it breaks.
 
-### Morning Digest
-Every morning at 8am (configurable), email or push notification with:
-- Today's meetings with one-line summaries of who you're meeting
-- Any overdue action items
-- News mentions of key contacts or their companies
-- "Warm up" nudges for neglected relationships
+The app needs to work as a **Progressive Web App (PWA)** — installable on iPhone home screen, offline-capable for reading briefs, native-feeling navigation.
 
-### Pre-Meeting Alert
-30 minutes before a meeting, push a brief to your phone. No need to open the app — it finds you.
+Design decisions to make:
+- **Bottom tab bar** on mobile: Today / Contacts / Actions / Settings
+- **Brief card** optimised for one-handed reading — swipe between attendees
+- **Tap to call / tap to email** directly from attendee card
+- **Add to home screen** prompt on first visit
+- **Offline mode** — cache the current day's briefs so they're readable without signal (e.g. in a lift before walking into a meeting)
 
-### News Monitoring
-Track companies and people you meet regularly. Surface relevant news automatically:  
-"Acme Corp just raised a Series B — you're meeting their CTO tomorrow."
+PWA requirements to add:
+- `manifest.json` with app name, icons, theme colour
+- Service worker for offline caching of briefs
+- Responsive Tailwind layout (stack vertically on mobile, sidebar on desktop)
+- Viewport meta + touch-friendly tap targets (min 44px)
 
 ---
 
-## Phase 5 — Communication Layer
+### 3. Calendar Attachment Reading
+
+Google Calendar events often have attachments — agendas, proposals, pitch decks, pre-reads. The agent should read them automatically and surface key points in the brief.
+
+How it works:
+- Calendar API already returns `attachments[]` on each event (file ID + MIME type)
+- Add `drive.readonly` to OAuth scope
+- For Google Docs/Slides: Drive export API → plain text, no parsing needed
+- For PDFs: download + `pdf-parse` npm package
+- For external links in description: fetch + cheerio HTML extraction
+- Pass extracted text to the agent as additional context before synthesis
+
+Questions to answer:
+- What's the max doc length before we need to chunk/summarise first?
+- Should we show the user which attachments were read?
+- Handle confidential/restricted Drive files gracefully?
+
+---
+
+### 4. Follow-Up Scheduling
+
+After a meeting, the agent drafts a follow-up and suggests next steps.
+
+Two modes to decide between:
+- **Draft only** — agent writes a follow-up email and calendar invite for your review. You approve and send manually. Lower risk, better for high-stakes relationships.
+- **Auto-schedule** — agent creates the calendar invite directly after you approve action items. Faster, requires `calendar` write scope.
+
+Flow:
+1. Meeting ends → you open the app (or get a push notification)
+2. Paste notes or transcript (or connect Otter/Fireflies later)
+3. Agent extracts action items, decisions, open questions
+4. Agent drafts follow-up email per attendee
+5. Agent suggests follow-up meeting time based on freebusy API
+6. You approve → one tap to send email + create calendar event
+
+OAuth scope changes needed:
+- Upgrade `calendar.readonly` → `https://www.googleapis.com/auth/calendar`
+- Add `https://www.googleapis.com/auth/gmail.send` (for sending follow-ups)
+
+---
+
+### 5. Morning Digest
+
+Turns the app from something you open, to something that briefs you.
+
+Delivery options to pick:
+- **Email** (simplest — use Resend, free tier, 3000 emails/month)
+- **Push notification** (requires service worker + web push subscription)
+- **Both** — email as default, push as opt-in
+
+Digest content:
+- Today's meetings with one-line attendee summaries
+- Overdue action items
+- News about people/companies you're meeting today
+- "Haven't spoken to X in 90 days — you meet them tomorrow" alerts
+
+Infrastructure needed:
+- Vercel Cron job (`vercel.json` → runs at 7am daily)
+- Or Inngest (better for reliability, retries, observability)
+
+---
+
+## Phase 3 — Relationship Memory (after foundations)
+
+Every meeting starts cold right now. A real PA remembers.
+
+### Contact Intelligence
+Per person, persist and grow over time:
+- Every meeting, when and what was discussed
+- Role changes (detected from updated LinkedIn research)
+- Topics they care about (extracted from briefs + notes)
+- Sentiment signals (was the meeting productive? tense?)
+
+When you meet them again: "Last met 6 weeks ago re: Q3 budget. They were pushing for X. You committed to Y."
+
+### Relationship Health
+- Flag contacts not spoken to in 60/90/180 days
+- "Warm-up" alerts before meeting someone you haven't seen in a while
+- Strength score per relationship (frequency + recency + engagement)
+
+### CRM Export
+One-click export to CSV, or live sync to HubSpot / Notion / Airtable via their APIs.
+
+---
+
+## Phase 4 — Communication Layer
 
 ### Gmail Integration
-- Summarise long email threads before meetings
-- Draft replies in your voice (learns your tone over time)
-- Surface emails from meeting attendees in the brief: "They emailed you 2 weeks ago about X"
+- Surface recent email threads from attendees in the brief
+- Summarise long threads ("14 emails about the contract — here's where it stands")
+- Draft replies in your voice (learns tone from sent mail history)
 
 ### Slack Integration
-Search your Slack history for conversations with attendees. Surface relevant threads in the brief. Post meeting summaries to a channel automatically.
+- Search Slack history for conversations with attendees
+- Post meeting summaries to a channel automatically
+- "/brief my-next-meeting" slash command
 
 ### Calendar Intelligence
-- Detect back-to-back meetings and flag prep time conflicts
-- Suggest agenda based on previous meeting outcomes
-- Auto-decline or flag meetings with no agenda
+- Flag back-to-back meetings with no prep buffer
+- Detect meetings with no agenda and suggest one based on history
+- "You always run over with this person — block 15 extra minutes"
 
 ---
 
-## Phase 6 — Voice & Mobile
+## Phase 5 — Voice & Deep Mobile
 
 ### Voice Notes
-Record a 2-minute voice memo after a meeting on your phone. Transcribed, summarised, action items extracted, stored against the meeting record automatically.
+Record a voice memo on your phone after a meeting. Auto-transcribed (Whisper API), summarised, action items extracted, stored against the meeting record. No typing required.
 
-### Mobile PWA
-Progressive web app optimised for iPhone. Pre-meeting brief as a native-feeling card. Swipe through attendees. Tap to call/email. Works offline for reading briefs.
+### Siri / Shortcuts
+"Hey Siri, brief me on my next meeting" → PA reads out a 90-second audio summary using TTS.
 
-### Siri / Shortcuts Integration
-"Hey Siri, brief me on my next meeting" → PA reads out a 60-second audio summary.
-
----
-
-## Phase 7 — Proactive Agent Mode
-
-This is where it becomes a real PA.
-
-### Autonomous Research Loop
-The agent runs overnight, not just on-demand. By the time you wake up, every meeting for the next 3 days is already fully researched with fresh news and updated profiles.
-
-### Relationship Suggestions
-"You haven't spoken to Jane in 4 months. She just got promoted. Good time to reach out." Drafts a congratulations message for your review.
-
-### Pre-read Surfacing
-Detects when an attendee has published something recently (article, talk, tweet thread) and surfaces it: "Read this before your call — it's what they're focused on."
-
-### Meeting Outcome Prediction
-Based on relationship history and attendee profiles, flags meetings likely to need extra prep or that carry high stakes.
+### Wearable Glance
+Apple Watch complication or notification showing next meeting + top 2 talking points. No phone needed.
 
 ---
 
-## Technical Foundations Needed
+## Phase 6 — Proactive Agent Mode
 
-These cut across phases and should be built early:
+The PA acts without being asked.
 
-| Foundation | Why it's needed |
-|---|---|
-| **Persistent database** (Postgres via Supabase or Neon) | Store contacts, meeting history, action items, notes |
-| **Background jobs** (Vercel Cron or Inngest) | Morning digest, overnight research, news monitoring |
-| **Gmail OAuth scope** | Email summarisation, follow-up drafts, send on behalf |
-| **Push notifications** (web push or Resend email) | Pre-meeting alerts, morning digest delivery |
-| **Vector store** (pgvector or Pinecone) | Semantic search over notes, emails, past meetings |
-| **Auth upgrade** (store user prefs, multiple users) | Currently single-user assumption baked in |
+### Overnight Research Loop
+Vercel Cron runs at midnight. Every meeting for the next 3 days is pre-researched by the time you wake up. Morning digest includes fresh briefs, no waiting.
+
+### Proactive Relationship Nudges
+"Jane just got promoted to VP — you worked together 2 years ago. Send a note?" Agent drafts the message, you approve.
+
+### Pre-read Detection
+Attendee published an article or gave a talk in the last 30 days. Surfaced automatically: "Read this before your call — it's exactly what they're focused on right now."
 
 ---
 
-## What to build next (recommended order)
+## Technical Foundations
 
-1. **Persistent DB + contact memory** — everything else depends on remembering people
-2. **Post-meeting notes + action item extraction** — closes the loop on the meeting lifecycle  
-3. **Follow-up email drafting** — immediately useful, high value per effort
-4. **Morning digest via email** — turns the app from pull to push; makes it a habit
-5. **Gmail thread surfacing in briefs** — adds context that web search can't find
+| Foundation | Required for | Effort |
+|---|---|---|
+| **Supabase** (Postgres + pgvector) | Everything | Medium — schema design is the hard part |
+| **Mobile PWA** (manifest + service worker) | Mobile use | Low-medium — mostly UI work |
+| **Drive API** (`drive.readonly` scope) | Attachment reading | Low |
+| **Calendar write scope** | Follow-up scheduling | Low (scope change + write endpoints) |
+| **Vercel Cron / Inngest** | Morning digest, overnight research | Low |
+| **Resend** (email delivery) | Morning digest | Low |
+| **Web Push** (service worker) | Pre-meeting alerts on mobile | Medium |
+| **Whisper API** | Voice notes | Low |
+| **Gmail API** (`gmail.readonly` + `gmail.send`) | Email layer | Medium |
+
+---
+
+## Recommended Build Order
+
+| Step | What | Why first |
+|---|---|---|
+| 1 | **Database schema + Supabase setup** | Unblocks everything — no memory without storage |
+| 2 | **Mobile PWA + responsive layout** | Makes it usable on the go from day one |
+| 3 | **Calendar attachment reading** | Immediate brief quality improvement, low effort |
+| 4 | **Post-meeting notes + action items** | Closes the meeting lifecycle loop |
+| 5 | **Follow-up email drafting** | High value, builds on action items |
+| 6 | **Morning digest via email** | Turns it from a tool into a habit |
+| 7 | **Contact memory + relationship history** | Compounds in value over time |
+| 8 | **Gmail thread surfacing** | Adds context web search can't find |
+| 9 | **Overnight autonomous research** | Makes the app fully proactive |
+
+---
+
+## Open Questions to Answer
+
+- Multi-user from the start, or stay single-user (you) for now?
+- Supabase or Neon for the database? (Supabase has more built-ins; Neon is leaner)
+- Self-host the service worker or use a push service (OneSignal, Expo)?
+- Voice notes via browser mic or require mobile app?
+- How opinionated should the follow-up flow be — fully automated approval or always manual?
+- Should contacts be deduplicated automatically (same person, different email) or manually merged?
