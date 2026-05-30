@@ -50,6 +50,8 @@ export function personResearchPrompt(
 3. Search "${name}" ${domain} to find their company profile
 4. Search "${name}" for recent articles, talks, or news`;
 
+  const linkedInSearchUrl = `https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(name + (personal ? "" : " " + domain.split(".")[0]))}`;
+
   return `Research this person I have an upcoming meeting with:
 Name: ${name}
 Email: ${attendee.email}
@@ -61,23 +63,23 @@ ${searchInstructions}
 
 IMPORTANT RULES:
 - Do not invent or guess any information — if you can't find it, say so.
-- Do NOT try to identify which LinkedIn profile is correct. Return ALL LinkedIn profiles you find and let the user decide.
-- For URLs: copy them VERBATIM character-for-character from search results. Never construct or infer a URL. If you didn't see the exact URL in a search result, omit it entirely.
+- For URLs: copy them VERBATIM character-for-character from search results. Never construct or guess a profile URL.
+- For LinkedIn: ALWAYS include the pre-built search link below — never try to link to a specific profile page.
 
 Return a JSON object with these exact fields:
 {
   "email": "${attendee.email}",
   "name": "<full name from search results, or best guess from email/meeting title>",
-  "bio": "<2-4 sentences from their LinkedIn About section or profile summary verbatim. If nothing found, say so.>",
+  "bio": "<2-4 sentences about who they are from search results. If nothing found, say so.>",
   "role": "<current title and company from search results, or 'Unknown'>",
   "recentActivity": ["<item 1>", "<item 2>", "<item 3>"],
   "talkingPoints": ["<point 1>", "<point 2>", "<point 3>"],
   "links": [
-    { "label": "LinkedIn", "url": "<verbatim LinkedIn URL — add one entry per profile found>" },
-    { "label": "Company", "url": "<verbatim company page URL if found>" },
+    { "label": "LinkedIn Search", "url": "${linkedInSearchUrl}" },
+    { "label": "Company", "url": "<verbatim company page URL if found, else omit>" },
     { "label": "<descriptive label>", "url": "<any other verbatim URL: GitHub, Twitter, personal site, news article>" }
   ]
 }
 
-Only include link entries where you have a real verbatim URL from search results. If you found 3 LinkedIn profiles, include 3 separate LinkedIn entries.`;
+Only include link entries beyond LinkedIn Search where you have a real verbatim URL from search results.`;
 }
