@@ -8,6 +8,7 @@ import MeetingList from "@/components/MeetingList";
 import AgentProgress from "@/components/AgentProgress";
 import BriefPanel from "@/components/BriefPanel";
 import DigestPanel from "@/components/DigestPanel";
+import DayPlanner from "@/components/DayPlanner";
 import SignInButton from "@/components/SignInButton";
 import { Meeting, MeetingBrief } from "@/types";
 
@@ -18,7 +19,7 @@ export default function Home() {
   const [brief, setBrief] = useState<MeetingBrief | null>(null);
   const [briefs, setBriefs] = useState<Record<string, MeetingBrief>>({});
   const [researching, setResearching] = useState(false);
-  const [mobileView, setMobileView] = useState<"meetings" | "brief" | "digest">("meetings");
+  const [mobileView, setMobileView] = useState<"meetings" | "brief" | "digest" | "plan">("meetings");
 
   function handleSelectMeeting(meeting: Meeting) {
     setSelectedMeeting(meeting);
@@ -60,7 +61,7 @@ export default function Home() {
       <header className="flex items-center justify-between px-4 md:px-5 py-4 bg-[#0f0f0f] border-b border-white/6 flex-shrink-0 safe-top">
         <div className="flex items-center gap-2.5">
           {/* Back button on mobile */}
-          {(mobileView === "brief" || mobileView === "digest") && (
+          {(mobileView === "brief" || mobileView === "digest" || mobileView === "plan") && (
             <button
               onClick={() => setMobileView("meetings")}
               className="md:hidden -ml-1 p-1.5 rounded-lg hover:bg-white/6 text-zinc-400 mr-0.5 transition-colors"
@@ -84,6 +85,19 @@ export default function Home() {
         </div>
 
         <div className="flex items-center gap-1">
+          <button
+            onClick={() => setMobileView(mobileView === "plan" ? "meetings" : "plan")}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
+              mobileView === "plan"
+                ? "bg-violet-600 text-white shadow-lg shadow-violet-900/30"
+                : "text-zinc-400 hover:text-zinc-200 hover:bg-white/6"
+            }`}
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
+            </svg>
+            Plan
+          </button>
           <button
             onClick={() => setMobileView(mobileView === "digest" ? "meetings" : "digest")}
             className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
@@ -129,8 +143,25 @@ export default function Home() {
           </div>
         )}
 
+        {/* Plan view */}
+        {mobileView === "plan" && (
+          <div className="w-full flex flex-1 overflow-hidden">
+            <div className="hidden md:flex w-72 flex-shrink-0 border-r border-white/6 flex-col bg-[#0f0f0f]">
+              <div className="px-4 pt-5 pb-2">
+                <h2 className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest">Meetings</h2>
+              </div>
+              <div className="flex-1 overflow-y-auto">
+                <MeetingList selectedId={selectedMeeting?.id ?? null} onSelect={handleSelectMeeting} />
+              </div>
+            </div>
+            <div className="flex-1 overflow-hidden flex flex-col">
+              <DayPlanner />
+            </div>
+          </div>
+        )}
+
         {/* Normal layout */}
-        {mobileView !== "digest" && (
+        {mobileView !== "digest" && mobileView !== "plan" && (
           <>
             <div className={`w-full md:w-72 md:flex-shrink-0 border-r border-white/6 flex flex-col bg-[#0f0f0f] ${mobileView === "brief" ? "hidden md:flex" : "flex"}`}>
               <div className="px-4 pt-5 pb-2">
