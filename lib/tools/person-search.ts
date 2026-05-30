@@ -61,24 +61,23 @@ ${searchInstructions}
 
 IMPORTANT RULES:
 - Do not invent or guess any information — if you can't find it, say so.
-- There may be multiple people with this name. Use the company/context clues to pick the most likely match, and list ALL LinkedIn profiles you found as separate link entries so the user can verify.
-- For URLs: copy them VERBATIM character-for-character from search results. Never construct or infer a URL — LinkedIn profile slugs are not predictable from names. If you didn't see the exact URL in a search result, omit that link.
+- Do NOT try to identify which LinkedIn profile is correct. Return ALL LinkedIn profiles you find and let the user decide.
+- For URLs: copy them VERBATIM character-for-character from search results. Never construct or infer a URL. If you didn't see the exact URL in a search result, omit it entirely.
 
 Return a JSON object with these exact fields:
 {
   "email": "${attendee.email}",
-  "name": "<full name, or best guess from email/meeting title if not found>",
-  "bio": "<2-4 sentences: use their LinkedIn 'About' section or profile summary verbatim if found, otherwise synthesize from what you read. If multiple people matched, note the ambiguity.>",
-  "role": "<current title and company of the most likely match, or 'Unknown'>",
+  "name": "<full name from search results, or best guess from email/meeting title>",
+  "bio": "<2-4 sentences from their LinkedIn About section or profile summary verbatim. If nothing found, say so.>",
+  "role": "<current title and company from search results, or 'Unknown'>",
   "recentActivity": ["<item 1>", "<item 2>", "<item 3>"],
   "talkingPoints": ["<point 1>", "<point 2>", "<point 3>"],
   "links": [
-    { "label": "LinkedIn (best match)", "url": "<exact LinkedIn URL you found for the most likely match>" },
-    { "label": "LinkedIn (other match)", "url": "<exact URL for any other LinkedIn profiles found with same name>" },
-    { "label": "Company", "url": "<exact company page URL>" },
-    { "label": "<label>", "url": "<any other verbatim URL: GitHub, Twitter, blog, news>" }
+    { "label": "LinkedIn", "url": "<verbatim LinkedIn URL — add one entry per profile found>" },
+    { "label": "Company", "url": "<verbatim company page URL if found>" },
+    { "label": "<descriptive label>", "url": "<any other verbatim URL: GitHub, Twitter, personal site, news article>" }
   ]
 }
 
-Omit any link object where you don't have the real verbatim URL from search results.`;
+Only include link entries where you have a real verbatim URL from search results. If you found 3 LinkedIn profiles, include 3 separate LinkedIn entries.`;
 }
