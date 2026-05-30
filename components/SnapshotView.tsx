@@ -88,11 +88,11 @@ export default function SnapshotView({ meetings, loading, noCalendars, onSelectM
         {!loading && (
           <div className="grid grid-cols-3 gap-2">
             {[
-              { label: "Today", value: todayMeetings.length, sub: "meetings" },
-              { label: "Tomorrow", value: groups.Tomorrow.length, sub: "meetings" },
-              { label: "Briefed", value: todayMeetings.filter(m => m.hasBrief).length, sub: "of today" },
-            ].map(stat => (
-              <div key={stat.label} className="bg-[#141414] border border-white/6 rounded-2xl px-3 py-3 text-center">
+              { value: todayMeetings.length, sub: "today" },
+              { value: groups.Tomorrow.length, sub: "tomorrow" },
+              { value: todayMeetings.reduce((acc, m) => acc + m.attendees.length, 0), sub: "people today" },
+            ].map((stat, i) => (
+              <div key={i} className="bg-[#141414] border border-white/6 rounded-2xl px-3 py-3 text-center">
                 <p className="text-xl font-bold text-zinc-100">{stat.value}</p>
                 <p className="text-[10px] text-zinc-600 mt-0.5">{stat.sub}</p>
               </div>

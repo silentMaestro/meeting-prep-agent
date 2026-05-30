@@ -19,7 +19,9 @@ function toTimeStr(iso: string) {
 }
 
 function buildISO(timeStr: string, referenceISO: string) {
-  const date = new Date(referenceISO).toISOString().split("T")[0];
+  // Take the date portion directly from the string — never go through UTC conversion,
+  // which shifts evening times to the next day in behind-UTC timezones.
+  const date = referenceISO.split("T")[0];
   return `${date}T${timeStr}:00`;
 }
 
