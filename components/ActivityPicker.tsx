@@ -5,6 +5,7 @@ import { useState } from "react";
 
 interface Props {
   slot: { start: string; end: string };
+  preset?: Omit<TimeBlock, "id" | "gcalEventId"> | null;
   onConfirm: (block: Omit<TimeBlock, "id" | "gcalEventId"> & { attendees?: string; location?: string }) => void;
   onClose: () => void;
 }
@@ -53,15 +54,15 @@ function timeLabel(t: string) {
   return m === 0 ? `${hour}${ampm}` : `${hour}:${m.toString().padStart(2, "0")}${ampm}`;
 }
 
-export default function ActivityPicker({ slot, onConfirm, onClose }: Props) {
-  const [step, setStep] = useState<"time" | "activity" | "details">("time");
-  const [customStart, setCustomStart] = useState(toTimeStr(slot.start));
-  const [customEnd, setCustomEnd]     = useState(toTimeStr(slot.end));
-  const [selected, setSelected]       = useState<ActivityType | null>(null);
-  const [title, setTitle]             = useState("");
+export default function ActivityPicker({ slot, preset, onConfirm, onClose }: Props) {
+  const [step, setStep] = useState<"time" | "activity" | "details">(preset ? "details" : "time");
+  const [customStart, setCustomStart] = useState(toTimeStr(preset?.start ?? slot.start));
+  const [customEnd, setCustomEnd]     = useState(toTimeStr(preset?.end ?? slot.end));
+  const [selected, setSelected]       = useState<ActivityType | null>(preset?.type ?? null);
+  const [title, setTitle]             = useState(preset?.title ?? "");
   const [attendees, setAttendees]     = useState("");
   const [location, setLocation]       = useState("");
-  const [description, setDescription] = useState("");
+  const [description, setDescription] = useState(preset?.description ?? "");
 
   const startOptions = timeOptions(slot.start, slot.end);
   const endOptions   = timeOptions(
@@ -218,6 +219,36 @@ export default function ActivityPicker({ slot, onConfirm, onClose }: Props) {
         {/* Step 3: Details */}
         {step === "details" && cfg && (
           <div className="px-5 py-4 space-y-3">
+            {/* Time range (editable, shown when coming from suggestion) */}
+            {preset && (
+              <div className="flex gap-3">
+                <div className="flex-1">
+                  <label className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest block mb-1.5">Start</label>
+                  <select
+                    value={customStart}
+                    onChange={e => setCustomStart(e.target.value)}
+                    className="w-full bg-zinc-900 border border-white/8 rounded-xl px-3 py-2 text-sm text-zinc-200 focus:outline-none focus:border-violet-500/50 appearance-none"
+                  >
+                    {timeOptions(slot.start, slot.end).slice(0, -1).map(t => (
+                      <option key={t} value={t}>{timeLabel(t)}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex items-end pb-2 text-zinc-600">→</div>
+                <div className="flex-1">
+                  <label className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest block mb-1.5">End</label>
+                  <select
+                    value={customEnd}
+                    onChange={e => setCustomEnd(e.target.value)}
+                    className="w-full bg-zinc-900 border border-white/8 rounded-xl px-3 py-2 text-sm text-zinc-200 focus:outline-none focus:border-violet-500/50 appearance-none"
+                  >
+                    {timeOptions(buildISO(customStart, slot.start), slot.end).filter(t => t > customStart).map(t => (
+                      <option key={t} value={t}>{timeLabel(t)}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            )}
             {/* Title */}
             <div>
               <label className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest block mb-1.5">Title</label>

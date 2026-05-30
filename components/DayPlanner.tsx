@@ -71,6 +71,7 @@ export default function DayPlanner() {
   const [saving, setSaving] = useState(false);
   const [addedBlocks, setAddedBlocks] = useState<TimeBlock[]>([]);
   const [pickerSlot, setPickerSlot] = useState<FreeSlot | null>(null);
+  const [pickerPreset, setPickerPreset] = useState<Omit<TimeBlock, "id" | "gcalEventId"> | null>(null);
   const [activeTab, setActiveTab] = useState<"timeline" | "suggest">("timeline");
   const [now, setNow] = useState<number | null>(nowOffset());
 
@@ -322,10 +323,13 @@ export default function DayPlanner() {
                       </span>
                     ) : (
                       <button
-                        onClick={() => handleAcceptSuggestion(block)}
+                        onClick={() => {
+                          setPickerPreset(block);
+                          setPickerSlot({ start: block.start, end: block.end });
+                        }}
                         className="flex-shrink-0 text-[10px] font-semibold text-violet-400 bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/20 px-2.5 py-1.5 rounded-lg transition-all"
                       >
-                        + Add
+                        Adjust & add
                       </button>
                     )}
                   </div>
@@ -352,8 +356,9 @@ export default function DayPlanner() {
       {pickerSlot && (
         <ActivityPicker
           slot={pickerSlot}
+          preset={pickerPreset}
           onConfirm={handleAddBlock}
-          onClose={() => setPickerSlot(null)}
+          onClose={() => { setPickerSlot(null); setPickerPreset(null); }}
         />
       )}
     </div>
