@@ -21,7 +21,7 @@ async function researchAttendee(
       max_tokens: 2048,
       tools: [personSearchTool as any],
       messages,
-    });
+    } as any, { headers: { "anthropic-beta": "web-search-2025-03-05" } });
 
     if (response.stop_reason === "end_turn") {
       const text = response.content

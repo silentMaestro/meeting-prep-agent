@@ -24,50 +24,85 @@ export default function AgentProgress({ meeting, onBriefReady }: Props) {
     if (calledRef.current) return;
     calledRef.current = true;
 
-    const es = new EventSource(`/api/research?meetingId=${meeting.id}`);
+    const abortController = new AbortController();
 
-    es.onmessage = (e) => {
-      const event: AgentEvent = JSON.parse(e.data);
+    async function streamResearch() {
+      try {
+        const res = await fetch("/api/research", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ meeting }),
+          signal: abortController.signal,
+        });
 
-      if (event.type === "status") {
-        setStatusMsg(event.message);
-        // Add a step row for notable status messages
-        if (event.message.startsWith("Researching")) {
-          const email = event.message.replace("Researching ", "");
-          setSteps((prev) =>
-            prev.find((s) => s.id === email)
-              ? prev
-              : [...prev, { id: email, label: `Researching ${email}`, status: "running" }]
-          );
-        } else if (event.message.startsWith("Synthesizing")) {
-          setSteps((prev) => [...prev, { id: "__synth", label: "Synthesizing brief", status: "running" }]);
+        if (!res.ok || !res.body) {
+          setGlobalStatus("error");
+          setStatusMsg(`Server error: ${res.status}`);
+          return;
         }
-      } else if (event.type === "attendee_done") {
-        const email = event.attendee.email;
-        setSteps((prev) =>
-          prev.map((s) =>
-            s.id === email ? { ...s, status: "done", label: `Researched ${email}` } : s
-          )
-        );
-      } else if (event.type === "news_done") {
-        // no-op for step display
-      } else if (event.type === "brief_done") {
-        setSteps((prev) =>
-          prev.map((s) => s.id === "__synth" ? { ...s, status: "done", label: "Brief ready" } : s)
-        );
-        setGlobalStatus("done");
-        onBriefReady(event.brief);
-        es.close();
-      } else if (event.type === "error") {
-        setGlobalStatus("error");
-        setStatusMsg(event.message);
-        setSteps((prev) => prev.map((s) => s.status === "running" ? { ...s, status: "error" } : s));
-        es.close();
-      }
-    };
 
-    es.onerror = () => { setGlobalStatus("error"); es.close(); };
-    return () => es.close();
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() ?? "";
+
+          for (const line of lines) {
+            if (!line.startsWith("data: ")) continue;
+            try {
+              const event: AgentEvent = JSON.parse(line.slice(6));
+
+              if (event.type === "status") {
+                setStatusMsg(event.message);
+                if (event.message.startsWith("Researching")) {
+                  const name = event.message.replace("Researching ", "").replace("...", "");
+                  setSteps((prev) =>
+                    prev.find((s) => s.id === name)
+                      ? prev
+                      : [...prev, { id: name, label: `Researching ${name}`, status: "running" }]
+                  );
+                } else if (event.message.startsWith("Synthesizing")) {
+                  setSteps((prev) => [...prev, { id: "__synth", label: "Synthesizing brief", status: "running" }]);
+                }
+              } else if (event.type === "attendee_done") {
+                const email = event.attendee.email;
+                setSteps((prev) =>
+                  prev.map((s) =>
+                    s.id === email || s.label.includes(event.attendee.name)
+                      ? { ...s, status: "done", label: `Researched ${event.attendee.name}` }
+                      : s
+                  )
+                );
+              } else if (event.type === "brief_done") {
+                setSteps((prev) =>
+                  prev.map((s) => s.id === "__synth" ? { ...s, status: "done", label: "Brief ready" } : s)
+                );
+                setGlobalStatus("done");
+                onBriefReady(event.brief);
+              } else if (event.type === "error") {
+                setGlobalStatus("error");
+                setStatusMsg(event.message);
+                setSteps((prev) => prev.map((s) => s.status === "running" ? { ...s, status: "error" } : s));
+              }
+            } catch {}
+          }
+        }
+      } catch (err: any) {
+        if (err.name !== "AbortError") {
+          setGlobalStatus("error");
+          setStatusMsg(err.message ?? "Connection failed");
+        }
+      }
+    }
+
+    streamResearch();
+    return () => abortController.abort();
   }, [meeting.id]);
 
   return (
