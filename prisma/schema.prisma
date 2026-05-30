@@ -12,21 +12,36 @@ datasource db {
 // Users — multi-user ready (RLS enforced later)
 // ─────────────────────────────────────────────
 model User {
-  id            String   @id @default(cuid())
-  email         String   @unique
+  id            String    @id @default(cuid())
+  email         String    @unique
   name          String?
   avatarUrl     String?
-  timezone      String   @default("UTC")
-  digestTime    String   @default("08:00")
-  digestEnabled Boolean  @default(true)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  passwordHash  String?   // null for Google-only accounts
+  emailVerified DateTime? // null until verified; Google sets this on first sign-in
+  timezone      String    @default("UTC")
+  digestTime    String    @default("08:00")
+  digestEnabled Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   contacts            Contact[]
   meetings            Meeting[]
   actionItems         ActionItem[]
   digests             Digest[]
   calendarConnections CalendarConnection[]
+}
+
+// One-time tokens for email verification (and future password reset)
+model VerificationToken {
+  id        String   @id @default(cuid())
+  token     String   @unique @default(cuid())
+  email     String
+  type      String   @default("EMAIL_VERIFY") // EMAIL_VERIFY | PASSWORD_RESET
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([email])
 }
 
 // ─────────────────────────────────────────────

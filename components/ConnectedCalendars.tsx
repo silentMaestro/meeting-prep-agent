@@ -24,7 +24,7 @@ function GoogleIcon() {
   );
 }
 
-export default function ConnectedCalendars() {
+export default function ConnectedCalendars({ showOnboardingPrompt = false }: { showOnboardingPrompt?: boolean }) {
   const [connections, setConnections] = useState<CalendarConnection[]>([]);
   const [loading, setLoading] = useState(true);
   const [disconnecting, setDisconnecting] = useState<string | null>(null);
@@ -78,10 +78,26 @@ export default function ConnectedCalendars() {
           ))}
         </div>
       ) : connections.length === 0 ? (
-        <div className="bg-amber-50 border border-amber-100 rounded-2xl px-4 py-5 text-center">
-          <p className="text-sm font-medium text-amber-800">No calendars connected</p>
-          <p className="text-xs text-amber-600 mt-1">Connect a calendar below to start syncing meetings.</p>
-        </div>
+        showOnboardingPrompt ? (
+          <div className="bg-blue-50 border border-blue-100 rounded-2xl px-5 py-6 text-center space-y-3">
+            <div className="w-12 h-12 bg-blue-100 rounded-2xl flex items-center justify-center mx-auto">
+              <svg className="w-6 h-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-blue-900">Connect your first calendar</p>
+              <p className="text-xs text-blue-600 mt-1 leading-relaxed">
+                Pocket PA needs access to your calendar to research meetings, surface action items, and send your daily digest.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="bg-amber-50 border border-amber-100 rounded-2xl px-4 py-5 text-center">
+            <p className="text-sm font-medium text-amber-800">No calendars connected</p>
+            <p className="text-xs text-amber-600 mt-1">Connect a calendar below to start syncing meetings.</p>
+          </div>
+        )
       ) : (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm divide-y divide-gray-50 overflow-hidden">
           {connections.map((c) => (

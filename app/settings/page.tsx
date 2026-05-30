@@ -72,8 +72,16 @@ export default function SettingsPage() {
         <section>
           <SectionLabel>📅 Connected Calendars</SectionLabel>
           <Suspense fallback={<div className="h-32 bg-gray-100 rounded-2xl animate-pulse" />}>
-            <ConnectedCalendars />
+            <ConnectedCalendars showOnboardingPrompt />
           </Suspense>
+        </section>
+
+        {/* Sign out */}
+        <section>
+          <SectionLabel>Session</SectionLabel>
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3">
+            <SignInButton compact={false} />
+          </div>
         </section>
       </div>
     </div>
