@@ -12,6 +12,7 @@ import BottomNav from "@/components/BottomNav";
 import ConnectedCalendars from "@/components/ConnectedCalendars";
 import { signOut } from "next-auth/react";
 import { Meeting, MeetingBrief } from "@/types";
+import { useEffect, useRef } from "react";
 
 type Tab = "snapshot" | "plan" | "contacts" | "settings";
 
@@ -23,6 +24,25 @@ export default function Home() {
   const [brief, setBrief] = useState<MeetingBrief | null>(null);
   const [briefs, setBriefs] = useState<Record<string, MeetingBrief>>({});
   const [researching, setResearching] = useState(false);
+
+  // Shared meetings state — fetched once, passed to all tabs
+  const [meetings, setMeetings] = useState<Meeting[]>([]);
+  const [meetingsLoading, setMeetingsLoading] = useState(true);
+  const [noCalendars, setNoCalendars] = useState(false);
+  const fetchedRef = useRef(false);
+
+  useEffect(() => {
+    if (!session || fetchedRef.current) return;
+    fetchedRef.current = true;
+    fetch("/api/meetings")
+      .then(r => r.json())
+      .then(d => {
+        setMeetings(d.meetings ?? []);
+        setNoCalendars(!!d.noCalendars);
+        setMeetingsLoading(false);
+      })
+      .catch(() => setMeetingsLoading(false));
+  }, [session]);
 
   function handleSelectMeeting(meeting: Meeting) {
     setSelectedMeeting(meeting);
@@ -126,17 +146,14 @@ export default function Home() {
         {/* Normal tab content */}
         {!showBriefView && (
           <>
-            {/* Desktop sidebar on snapshot */}
             {tab === "snapshot" && (
-              <div className="hidden md:flex flex-col w-full overflow-hidden">
-                <SnapshotView onSelectMeeting={m => { setTab("snapshot"); handleSelectMeeting(m); }} />
-              </div>
-            )}
-
-            {/* Mobile snapshot */}
-            {tab === "snapshot" && (
-              <div className="flex flex-col w-full overflow-hidden md:hidden">
-                <SnapshotView onSelectMeeting={handleSelectMeeting} />
+              <div className="flex flex-col w-full overflow-hidden">
+                <SnapshotView
+                  meetings={meetings}
+                  loading={meetingsLoading}
+                  noCalendars={noCalendars}
+                  onSelectMeeting={handleSelectMeeting}
+                />
               </div>
             )}
 

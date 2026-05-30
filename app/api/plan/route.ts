@@ -1,8 +1,8 @@
 import { NextResponse, connection } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import { getUserCalendarConnections, getValidAccessToken } from "@/lib/calendar-connections";
 import { TimeBlock, ActivityType, DayPlan } from "@/types";
+import { db } from "@/lib/db";
 import Anthropic from "@anthropic-ai/sdk";
 
 const client = new Anthropic();
@@ -26,7 +26,6 @@ function computeFreeSlots(
     }
     cursor = Math.max(cursor, evEnd);
   }
-
   if (cursor < dayEnd.getTime() - 15 * 60 * 1000) {
     slots.push({ start: toISO(new Date(cursor)), end: toISO(dayEnd) });
   }
@@ -42,45 +41,29 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const dateStr = searchParams.get("date") ?? new Date().toISOString().split("T")[0];
 
-  // Working hours: 7am–8pm local (we use UTC for simplicity)
   const dayStart = new Date(`${dateStr}T07:00:00`);
   const dayEnd   = new Date(`${dateStr}T20:00:00`);
 
-  const connections = await getUserCalendarConnections(userId);
-  if (!connections.length) return NextResponse.json({ error: "No calendars connected" }, { status: 400 });
+  // ── Read from DB (fast, no Google call) ──────────────────────────────
+  const dbMeetings = await db.meeting.findMany({
+    where: {
+      userId,
+      startAt: { gte: dayStart, lte: dayEnd },
+    },
+    orderBy: { startAt: "asc" },
+  });
 
-  // Fetch events from all connected calendars
-  const allEvents: TimeBlock[] = [];
-  for (const conn of connections) {
-    try {
-      const token = await getValidAccessToken(conn.id);
-      const url = new URL("https://www.googleapis.com/calendar/v3/calendars/primary/events");
-      url.searchParams.set("timeMin", dayStart.toISOString());
-      url.searchParams.set("timeMax", dayEnd.toISOString());
-      url.searchParams.set("singleEvents", "true");
-      url.searchParams.set("orderBy", "startTime");
-      url.searchParams.set("maxResults", "50");
+  const allEvents: TimeBlock[] = dbMeetings.map(m => ({
+    id: m.gcalEventId,
+    gcalEventId: m.gcalEventId,
+    title: m.title,
+    start: m.startAt.toISOString(),
+    end: m.endAt.toISOString(),
+    type: "meeting" as ActivityType,
+    description: m.description ?? undefined,
+  }));
 
-      const res = await fetch(url.toString(), { headers: { Authorization: `Bearer ${token}` } });
-      if (!res.ok) continue;
-      const data = await res.json();
-
-      for (const item of data.items ?? []) {
-        if (!item.start?.dateTime) continue; // skip all-day events
-        allEvents.push({
-          id: item.id,
-          gcalEventId: item.id,
-          title: item.summary ?? "Busy",
-          start: item.start.dateTime,
-          end: item.end.dateTime,
-          type: "meeting",
-          description: item.description,
-        });
-      }
-    } catch { continue; }
-  }
-
-  // Deduplicate and compute free slots
+  // If DB is empty (first load before any meetings fetch), fall back gracefully
   const freeSlots = computeFreeSlots(allEvents, dayStart, dayEnd);
   const freeMinutes = freeSlots.reduce((acc, s) =>
     acc + (new Date(s.end).getTime() - new Date(s.start).getTime()) / 60000, 0);
@@ -116,12 +99,6 @@ Only return the JSON array, no other text.`;
     } catch { suggestedBlocks = []; }
   }
 
-  const plan: DayPlan = {
-    date: dateStr,
-    blocks: allEvents,
-    freeMinutes,
-    suggestedBlocks,
-  };
-
+  const plan: DayPlan = { date: dateStr, blocks: allEvents, freeMinutes, suggestedBlocks };
   return NextResponse.json({ plan });
 }

@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { Meeting } from "@/types";
 
 interface SnapshotMeeting extends Meeting {
@@ -35,20 +34,13 @@ function groupByDay(meetings: SnapshotMeeting[]) {
 }
 
 interface Props {
+  meetings: Meeting[];
+  loading: boolean;
+  noCalendars: boolean;
   onSelectMeeting: (meeting: Meeting) => void;
 }
 
-export default function SnapshotView({ onSelectMeeting }: Props) {
-  const [meetings, setMeetings] = useState<SnapshotMeeting[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [noCalendars, setNoCalendars] = useState(false);
-
-  useEffect(() => {
-    fetch("/api/meetings")
-      .then(r => r.json())
-      .then(d => { setMeetings(d.meetings ?? []); setNoCalendars(!!d.noCalendars); setLoading(false); })
-      .catch(() => setLoading(false));
-  }, []);
+export default function SnapshotView({ meetings, loading, noCalendars, onSelectMeeting }: Props) {
 
   const now = new Date();
   const greeting = now.getHours() < 12 ? "Good morning" : now.getHours() < 17 ? "Good afternoon" : "Good evening";
