@@ -57,7 +57,7 @@ export default function Home() {
   return (
     <div className="flex flex-col h-screen max-h-screen overflow-hidden bg-[#0a0a0a]">
       {/* Header */}
-      <header className="flex items-center justify-between px-4 md:px-5 py-3 bg-[#0f0f0f] border-b border-white/6 flex-shrink-0 safe-top">
+      <header className="flex items-center justify-between px-4 md:px-5 py-4 bg-[#0f0f0f] border-b border-white/6 flex-shrink-0 safe-top">
         <div className="flex items-center gap-2.5">
           {/* Back button on mobile */}
           {(mobileView === "brief" || mobileView === "digest") && (
@@ -116,8 +116,8 @@ export default function Home() {
         {mobileView === "digest" && (
           <div className="w-full flex flex-1 overflow-hidden">
             <div className="hidden md:flex w-72 flex-shrink-0 border-r border-white/6 flex-col bg-[#0f0f0f]">
-              <div className="px-4 pt-4 pb-2">
-                <h2 className="text-[11px] font-semibold text-zinc-600 uppercase tracking-widest">Meetings</h2>
+              <div className="px-4 pt-5 pb-2">
+                <h2 className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest">Meetings</h2>
               </div>
               <div className="flex-1 overflow-y-auto">
                 <MeetingList selectedId={selectedMeeting?.id ?? null} onSelect={(m) => { handleSelectMeeting(m); }} />
@@ -133,8 +133,8 @@ export default function Home() {
         {mobileView !== "digest" && (
           <>
             <div className={`w-full md:w-72 md:flex-shrink-0 border-r border-white/6 flex flex-col bg-[#0f0f0f] ${mobileView === "brief" ? "hidden md:flex" : "flex"}`}>
-              <div className="px-4 pt-4 pb-2">
-                <h2 className="text-[11px] font-semibold text-zinc-600 uppercase tracking-widest">Meetings</h2>
+              <div className="px-4 pt-5 pb-2">
+                <h2 className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest">Meetings</h2>
               </div>
               <div className="flex-1 overflow-y-auto">
                 <MeetingList selectedId={selectedMeeting?.id ?? null} onSelect={handleSelectMeeting} />
