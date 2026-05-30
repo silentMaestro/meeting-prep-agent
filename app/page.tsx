@@ -31,6 +31,18 @@ export default function Home() {
   const [meetingsLoading, setMeetingsLoading] = useState(true);
   const [noCalendars, setNoCalendars] = useState(false);
   const fetchedRef = useRef(false);
+  const [dayStart, setDayStart] = useState("07:00");
+  const [dayEnd, setDayEnd] = useState("22:00");
+  const [savingSchedule, setSavingSchedule] = useState(false);
+
+  // Load day schedule settings
+  useEffect(() => {
+    if (!session) return;
+    fetch("/api/settings").then(r => r.json()).then(d => {
+      if (d.settings?.dayStartTime) setDayStart(d.settings.dayStartTime);
+      if (d.settings?.dayEndTime) setDayEnd(d.settings.dayEndTime);
+    }).catch(() => {});
+  }, [session]);
 
   useEffect(() => {
     if (!session || fetchedRef.current) return;
@@ -220,6 +232,60 @@ export default function Home() {
                   <div>
                     <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest mb-3">Calendars</p>
                     <ConnectedCalendars showOnboardingPrompt />
+                  </div>
+
+                  {/* Day Schedule */}
+                  <div>
+                    <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest mb-3">Day Schedule</p>
+                    <div className="bg-[#141414] border border-white/6 rounded-2xl px-4 py-4 space-y-4">
+                      <p className="text-xs text-zinc-500">Used for free-time suggestions and meal planning in your day planner.</p>
+                      <div className="flex gap-3">
+                        <div className="flex-1">
+                          <label className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest block mb-1.5">Day starts</label>
+                          <select
+                            value={dayStart}
+                            onChange={e => setDayStart(e.target.value)}
+                            className="w-full bg-zinc-900 border border-white/8 rounded-xl px-3 py-2 text-sm text-zinc-200 focus:outline-none focus:border-violet-500/50 appearance-none"
+                          >
+                            {Array.from({ length: 13 }, (_, i) => i + 4).map(h => {
+                              const val = `${String(h).padStart(2, "0")}:00`;
+                              const label = h < 12 ? `${h}:00 am` : h === 12 ? "12:00 pm" : `${h - 12}:00 pm`;
+                              return <option key={val} value={val}>{label}</option>;
+                            })}
+                          </select>
+                        </div>
+                        <div className="flex items-end pb-2 text-zinc-600">→</div>
+                        <div className="flex-1">
+                          <label className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest block mb-1.5">Day ends</label>
+                          <select
+                            value={dayEnd}
+                            onChange={e => setDayEnd(e.target.value)}
+                            className="w-full bg-zinc-900 border border-white/8 rounded-xl px-3 py-2 text-sm text-zinc-200 focus:outline-none focus:border-violet-500/50 appearance-none"
+                          >
+                            {Array.from({ length: 13 }, (_, i) => i + 12).map(h => {
+                              const val = `${String(h).padStart(2, "0")}:00`;
+                              const label = h === 12 ? "12:00 pm" : `${h - 12}:00 pm`;
+                              return <option key={val} value={val}>{label}</option>;
+                            })}
+                          </select>
+                        </div>
+                      </div>
+                      <button
+                        onClick={async () => {
+                          setSavingSchedule(true);
+                          await fetch("/api/settings", {
+                            method: "PATCH",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ dayStartTime: dayStart, dayEndTime: dayEnd }),
+                          });
+                          setSavingSchedule(false);
+                        }}
+                        disabled={savingSchedule}
+                        className="w-full py-2 rounded-xl bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white text-sm font-semibold transition-all"
+                      >
+                        {savingSchedule ? "Saving…" : "Save schedule"}
+                      </button>
+                    </div>
                   </div>
 
                   {/* Sign out */}

@@ -41,9 +41,9 @@ function nowOffset(): number | null {
 
 interface FreeSlot { start: string; end: string; }
 
-function computeFreeSlots(blocks: TimeBlock[], dateStr: string): FreeSlot[] {
-  const dayStart = new Date(`${dateStr}T07:00:00`); // free slots still 7am–10pm
-  const dayEnd   = new Date(`${dateStr}T22:00:00`);
+function computeFreeSlots(blocks: TimeBlock[], dateStr: string, startTime = "07:00", endTime = "22:00"): FreeSlot[] {
+  const dayStart = new Date(`${dateStr}T${startTime}:00`);
+  const dayEnd   = new Date(`${dateStr}T${endTime}:00`);
   const sorted = [...blocks]
     .filter(b => !b.isFree)
     .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
@@ -216,7 +216,18 @@ interface Props {
   onSelectMeeting: (meeting: Meeting) => void;
 }
 
+function todayStr() {
+  return new Date().toISOString().split("T")[0];
+}
+
+function offsetDate(dateStr: string, days: number): string {
+  const d = new Date(dateStr + "T12:00:00");
+  d.setDate(d.getDate() + days);
+  return d.toISOString().split("T")[0];
+}
+
 export default function DayPlanner({ meetings, onSelectMeeting }: Props) {
+  const [date, setDate] = useState(todayStr());
   const [plan, setPlan] = useState<DayPlan | null>(null);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
@@ -228,6 +239,8 @@ export default function DayPlanner({ meetings, onSelectMeeting }: Props) {
   const [activeTab, setActiveTab] = useState<"timeline" | "suggest">("timeline");
   const [now, setNow] = useState<number | null>(nowOffset());
   const [selectedBlock, setSelectedBlock] = useState<TimeBlock | null>(null);
+  const [dayStart, setDayStart] = useState("07:00");
+  const [dayEnd, setDayEnd] = useState("22:00");
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -235,24 +248,37 @@ export default function DayPlanner({ meetings, onSelectMeeting }: Props) {
     return () => clearInterval(t);
   }, []);
 
-  // Auto-scroll to current time (or 8am if outside day hours) once plan loads
+  // Fetch user day schedule settings once
+  useEffect(() => {
+    fetch("/api/settings")
+      .then(r => r.json())
+      .then(d => {
+        if (d.settings?.dayStartTime) setDayStart(d.settings.dayStartTime);
+        if (d.settings?.dayEndTime) setDayEnd(d.settings.dayEndTime);
+      })
+      .catch(() => {});
+  }, []);
+
+  // Auto-scroll to current time on today, or day start on other dates
   useEffect(() => {
     if (!plan || !scrollRef.current) return;
+    const isToday = date === todayStr();
     const now = new Date();
-    const targetHour = (now.getHours() > 0 && now.getHours() < 23)
-      ? now.getHours() - 1.5   // a bit above current time
-      : 8;                      // default to 8am
+    const [startH] = dayStart.split(":").map(Number);
+    const targetHour = isToday && now.getHours() > startH
+      ? now.getHours() - 1.5
+      : startH;
     const scrollTo = Math.max(0, targetHour * HOUR_HEIGHT - 40);
     scrollRef.current.scrollTop = scrollTo;
-  }, [plan]);
+  }, [plan, date, dayStart]);
 
-  const fetchPlan = useCallback(async () => {
+  const fetchPlan = useCallback(async (forDate: string) => {
+    setLoading(true);
     try {
-      const res = await fetch("/api/plan");
+      const res = await fetch(`/api/plan?date=${forDate}`);
       const d = await res.json();
       if (d.plan) {
         setPlan(d.plan);
-        // Drop addedBlocks that are now present in the refreshed plan
         const freshIds = new Set(d.plan.blocks.map((b: TimeBlock) => b.gcalEventId ?? b.id));
         setAddedBlocks(prev => prev.filter(b => !freshIds.has(b.gcalEventId ?? b.id)));
       }
@@ -261,15 +287,22 @@ export default function DayPlanner({ meetings, onSelectMeeting }: Props) {
   }, []);
 
   useEffect(() => {
-    fetchPlan();
+    // Reset local state when date changes
+    setAddedBlocks([]);
+    setRemovedIds(new Set());
+    fetchPlan(date);
 
-    // Trigger background Google Calendar refresh, then re-fetch plan
-    setSyncing(true);
-    fetch("/api/meetings")
-      .then(() => new Promise(r => setTimeout(r, 2500)))
-      .then(() => fetchPlan())
-      .finally(() => setSyncing(false));
-  }, [fetchPlan]);
+    // Trigger GCal refresh then re-fetch (only for today/tomorrow)
+    const today = todayStr();
+    const tomorrow = offsetDate(today, 1);
+    if (date === today || date === tomorrow) {
+      setSyncing(true);
+      fetch("/api/meetings")
+        .then(() => new Promise(r => setTimeout(r, 2500)))
+        .then(() => fetchPlan(date))
+        .finally(() => setSyncing(false));
+    }
+  }, [date, fetchPlan]);
 
   // Merge: plan.blocks (minus deleted) + addedBlocks that haven't been
   // absorbed into plan yet (dedup by gcalEventId to avoid double-counting
@@ -281,7 +314,7 @@ export default function DayPlanner({ meetings, onSelectMeeting }: Props) {
         ...addedBlocks.filter(b => !planBlockIds.has(b.gcalEventId ?? b.id) && !removedIds.has(b.id)),
       ]
     : [];
-  const freeSlots = plan ? computeFreeSlots(allBlocks, plan.date) : [];
+  const freeSlots = plan ? computeFreeSlots(allBlocks, plan.date, dayStart, dayEnd) : [];
   const totalFreeHours = freeSlots.reduce((acc, s) =>
     acc + (new Date(s.end).getTime() - new Date(s.start).getTime()) / 3600000, 0);
 
@@ -360,9 +393,33 @@ export default function DayPlanner({ meetings, onSelectMeeting }: Props) {
       {/* Header */}
       <div className="px-4 pt-4 pb-3 border-b border-white/6 flex-shrink-0">
         <div className="flex items-center justify-between mb-3">
-          <div>
-            <h2 className="text-sm font-bold text-zinc-100">Day Planner</h2>
-            <p className="text-xs text-zinc-600">{dateLabel}</p>
+          {/* Date navigation */}
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setDate(d => offsetDate(d, -1))}
+              className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-zinc-800 text-zinc-500 hover:text-zinc-300 transition-all"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+              </svg>
+            </button>
+            <button
+              onClick={() => setDate(todayStr())}
+              className="flex flex-col items-center px-1"
+            >
+              <span className="text-sm font-bold text-zinc-100 leading-tight">
+                {date === todayStr() ? "Today" : date === offsetDate(todayStr(), 1) ? "Tomorrow" : dateLabel.split(",")[0]}
+              </span>
+              <span className="text-[10px] text-zinc-600">{dateLabel.split(",").slice(1).join(",").trim()}</span>
+            </button>
+            <button
+              onClick={() => setDate(d => offsetDate(d, 1))}
+              className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-zinc-800 text-zinc-500 hover:text-zinc-300 transition-all"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+              </svg>
+            </button>
           </div>
           <div className="flex items-center gap-2">
             {(saving || syncing) && (

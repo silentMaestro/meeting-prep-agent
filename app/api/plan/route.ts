@@ -32,6 +32,33 @@ function computeFreeSlots(
   return slots;
 }
 
+// Infer meal times from day start/end (HH:MM strings)
+function mealHints(dateStr: string, dayStartTime: string, dayEndTime: string): string {
+  const [startH] = dayStartTime.split(":").map(Number);
+  const [endH]   = dayEndTime.split(":").map(Number);
+
+  // Breakfast: 30min after day start (if starts before 10am)
+  const breakfastH = startH < 10 ? startH + 0.5 : null;
+  // Lunch: noon, or midpoint of morning if day starts late
+  const lunchH = startH < 13 ? 12 : Math.round((startH + 14) / 2);
+  // Dinner: 2h before day end (if day ends after 5pm)
+  const dinnerH = endH > 17 ? endH - 2 : null;
+
+  const fmt = (h: number) => {
+    const hh = Math.floor(h);
+    const mm = (h % 1) === 0.5 ? "30" : "00";
+    const ampm = hh < 12 ? "am" : "pm";
+    return `${hh % 12 || 12}:${mm}${ampm}`;
+  };
+
+  const meals = [];
+  if (breakfastH !== null) meals.push(`- Breakfast around ${fmt(breakfastH)} (~30 min)`);
+  meals.push(`- Lunch around ${fmt(lunchH)} (~45 min)`);
+  if (dinnerH !== null) meals.push(`- Dinner around ${fmt(dinnerH)} (~1 hour)`);
+
+  return meals.join("\n");
+}
+
 export async function GET(req: Request) {
   await connection();
   const session = await getServerSession(authOptions);
@@ -41,15 +68,19 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const dateStr = searchParams.get("date") ?? new Date().toISOString().split("T")[0];
 
+  // Fetch user day schedule settings
+  const user = await db.user.findUnique({
+    where: { id: userId },
+    select: { dayStartTime: true, dayEndTime: true },
+  });
+  const dayStartTime = user?.dayStartTime ?? "07:00";
+  const dayEndTime   = user?.dayEndTime   ?? "22:00";
+
   const dayStart = new Date(`${dateStr}T00:00:00`);
   const dayEnd   = new Date(`${dateStr}T23:59:59`);
 
-  // ── Read from DB (fast, no Google call) ──────────────────────────────
   const dbMeetings = await db.meeting.findMany({
-    where: {
-      userId,
-      startAt: { gte: dayStart, lte: dayEnd },
-    },
+    where: { userId, startAt: { gte: dayStart, lte: dayEnd } },
     orderBy: { startAt: "asc" },
   });
 
@@ -63,31 +94,38 @@ export async function GET(req: Request) {
     description: m.description ?? undefined,
   }));
 
-  // Free slots for AI suggestions span working hours only (7am–10pm)
-  const workStart = new Date(`${dateStr}T07:00:00`);
-  const workEnd   = new Date(`${dateStr}T22:00:00`);
+  // Free slots use the user's configured day window
+  const workStart = new Date(`${dateStr}T${dayStartTime}:00`);
+  const workEnd   = new Date(`${dateStr}T${dayEndTime}:00`);
   const freeSlots = computeFreeSlots(allEvents, workStart, workEnd);
   const freeMinutes = freeSlots.reduce((acc, s) =>
     acc + (new Date(s.end).getTime() - new Date(s.start).getTime()) / 60000, 0);
 
-  // Ask Claude to suggest how to fill free slots
   let suggestedBlocks: Omit<TimeBlock, "id" | "gcalEventId">[] = [];
   if (freeSlots.length > 0) {
     try {
-      const prompt = `You are a productivity assistant. Given these free time slots and existing meetings, suggest how to fill the free time with focused, healthy activities.
+      const meals = mealHints(dateStr, dayStartTime, dayEndTime);
+      const prompt = `You are a productivity assistant helping plan someone's day.
 
 Date: ${dateStr}
+Day runs: ${dayStartTime} – ${dayEndTime}
 Existing meetings: ${JSON.stringify(allEvents.map(e => ({ title: e.title, start: e.start, end: e.end })))}
 Free slots: ${JSON.stringify(freeSlots)}
 
-Activity types available: focus (deep work), build (personal project), exercise, break, lunch, learning, reminder, other.
+This person eats 3 meals a day. Reserve time for:
+${meals}
 
-For each free slot, suggest 1 activity block. Keep suggestions realistic — include a lunch break around noon, exercise if there's a 45+ min slot, focus blocks for long morning slots.
+Activity types: focus (deep work), build (personal project), exercise, break, lunch, learning, reminder, other.
+Use "lunch" type for all meal blocks.
 
-Respond with a JSON array of blocks:
-[{ "title": "string", "start": "ISO", "end": "ISO", "type": "ActivityType", "description": "short reason" }]
+For remaining free time suggest realistic activities:
+- Long morning slots (60+ min) → focus or build
+- 45+ min gaps → exercise if not already scheduled
+- Short gaps (15–30 min) → break or reminder
+- Afternoon lulls (2–4pm) → break or learning
 
-Only return the JSON array, no other text.`;
+Respond ONLY with a JSON array:
+[{ "title": "string", "start": "ISO", "end": "ISO", "type": "ActivityType", "description": "one-line reason" }]`;
 
       const msg = await client.messages.create({
         model: "claude-opus-4-7",

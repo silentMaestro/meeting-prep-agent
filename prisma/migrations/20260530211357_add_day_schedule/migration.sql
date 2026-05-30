@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "User" ADD COLUMN     "dayEndTime" TEXT NOT NULL DEFAULT '22:00',
+ADD COLUMN     "dayStartTime" TEXT NOT NULL DEFAULT '07:00';
