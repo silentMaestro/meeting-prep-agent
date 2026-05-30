@@ -5,16 +5,21 @@ import { useState } from "react";
 
 interface Props {
   slot: { start: string; end: string };
-  onConfirm: (block: Omit<TimeBlock, "id" | "gcalEventId">) => void;
+  onConfirm: (block: Omit<TimeBlock, "id" | "gcalEventId"> & { attendees?: string; location?: string }) => void;
   onClose: () => void;
 }
 
 const ACTIVITY_ORDER: ActivityType[] = [
-  "focus", "build", "exercise", "lunch", "break", "learning", "reminder", "other"
+  "focus", "build", "exercise", "lunch", "break", "learning", "reminder", "meeting", "other"
 ];
 
-function formatTime(iso: string) {
-  return new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+function toTimeStr(iso: string) {
+  return new Date(iso).toTimeString().slice(0, 5);
+}
+
+function buildISO(timeStr: string, referenceISO: string) {
+  const date = new Date(referenceISO).toISOString().split("T")[0];
+  return `${date}T${timeStr}:00`;
 }
 
 function slotDuration(start: string, end: string) {
@@ -25,130 +30,241 @@ function slotDuration(start: string, end: string) {
   return m ? `${h}h ${m}m` : `${h}h`;
 }
 
-export default function ActivityPicker({ slot, onConfirm, onClose }: Props) {
-  const [selected, setSelected] = useState<ActivityType | null>(null);
-  const [title, setTitle] = useState("");
-  const [customStart, setCustomStart] = useState(
-    new Date(slot.start).toTimeString().slice(0, 5)
-  );
-  const [customEnd, setCustomEnd] = useState(
-    new Date(slot.end).toTimeString().slice(0, 5)
-  );
+function formatTime(iso: string) {
+  return new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+}
 
-  function buildISOFromTime(timeStr: string, referenceISO: string) {
-    const date = new Date(referenceISO).toISOString().split("T")[0];
-    return `${date}T${timeStr}:00`;
+// Generate 15-min interval options within the slot
+function timeOptions(slotStart: string, slotEnd: string) {
+  const options: string[] = [];
+  let cur = new Date(slotStart).getTime();
+  const end = new Date(slotEnd).getTime();
+  while (cur <= end) {
+    options.push(new Date(cur).toTimeString().slice(0, 5));
+    cur += 15 * 60 * 1000;
   }
+  return options;
+}
 
-  function handleSelect(type: ActivityType) {
+export default function ActivityPicker({ slot, onConfirm, onClose }: Props) {
+  const [step, setStep] = useState<"time" | "activity" | "details">("time");
+  const [customStart, setCustomStart] = useState(toTimeStr(slot.start));
+  const [customEnd, setCustomEnd]     = useState(toTimeStr(slot.end));
+  const [selected, setSelected]       = useState<ActivityType | null>(null);
+  const [title, setTitle]             = useState("");
+  const [attendees, setAttendees]     = useState("");
+  const [location, setLocation]       = useState("");
+  const [description, setDescription] = useState("");
+
+  const startOptions = timeOptions(slot.start, slot.end);
+  const endOptions   = timeOptions(
+    buildISO(customStart, slot.start),
+    slot.end
+  ).filter(t => t > customStart);
+
+  function handleSelectActivity(type: ActivityType) {
     setSelected(type);
     if (!title) setTitle(ACTIVITY_CONFIGS[type].label);
-    // Default end time based on activity duration
-    const start = new Date(slot.start);
-    const defaultMins = ACTIVITY_CONFIGS[type].defaultDuration;
-    const slotMins = (new Date(slot.end).getTime() - start.getTime()) / 60000;
-    const useMins = Math.min(defaultMins, slotMins);
-    const end = new Date(start.getTime() + useMins * 60000);
-    setCustomEnd(end.toTimeString().slice(0, 5));
+    // Default duration
+    const startMs = new Date(buildISO(customStart, slot.start)).getTime();
+    const slotEndMs = new Date(slot.end).getTime();
+    const defaultMs = ACTIVITY_CONFIGS[type].defaultDuration * 60 * 1000;
+    const endMs = Math.min(startMs + defaultMs, slotEndMs);
+    setCustomEnd(new Date(endMs).toTimeString().slice(0, 5));
+    setStep("details");
   }
 
   function handleConfirm() {
     if (!selected) return;
-    const startISO = buildISOFromTime(customStart, slot.start);
-    const endISO = buildISOFromTime(customEnd, slot.start);
     onConfirm({
       title: title || ACTIVITY_CONFIGS[selected].label,
-      start: startISO,
-      end: endISO,
+      start: buildISO(customStart, slot.start),
+      end:   buildISO(customEnd, slot.start),
       type: selected,
+      description,
+      ...(selected === "meeting" ? { attendees, location } : {}),
     });
   }
+
+  const cfg = selected ? ACTIVITY_CONFIGS[selected] : null;
+  const duration = (() => {
+    const startMs = new Date(buildISO(customStart, slot.start)).getTime();
+    const endMs   = new Date(buildISO(customEnd,   slot.start)).getTime();
+    const mins = Math.round((endMs - startMs) / 60000);
+    if (mins <= 0) return "";
+    if (mins < 60) return `${mins}m`;
+    const h = Math.floor(mins / 60); const m = mins % 60;
+    return m ? `${h}h ${m}m` : `${h}h`;
+  })();
 
   return (
     <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
       <div
         className="w-full max-w-sm bg-[#141414] border border-white/10 rounded-3xl overflow-hidden shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
+        onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="px-5 pt-5 pb-4 border-b border-white/6">
-          <div className="flex items-center justify-between mb-1">
-            <h3 className="text-sm font-semibold text-zinc-100">Add to your day</h3>
-            <button onClick={onClose} className="w-6 h-6 flex items-center justify-center rounded-full bg-zinc-800 hover:bg-zinc-700 transition-colors">
-              <svg className="w-3 h-3 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
-              </svg>
+        <div className="px-5 pt-5 pb-4 border-b border-white/6 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            {step !== "time" && (
+              <button
+                onClick={() => { setStep(step === "details" ? "activity" : "time"); setSelected(null); }}
+                className="w-6 h-6 flex items-center justify-center rounded-full bg-zinc-800 hover:bg-zinc-700 transition-colors mr-1"
+              >
+                <svg className="w-3 h-3 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+                </svg>
+              </button>
+            )}
+            <div>
+              <h3 className="text-sm font-semibold text-zinc-100">
+                {step === "time" ? "Choose a time range" : step === "activity" ? "What do you want to do?" : cfg?.label}
+              </h3>
+              <p className="text-xs text-zinc-500">
+                {step === "time"
+                  ? `${formatTime(slot.start)} – ${formatTime(slot.end)} · ${slotDuration(slot.start, slot.end)} available`
+                  : `${customStart.replace(/^0/, "")} – ${customEnd.replace(/^0/, "")} · ${duration}`}
+              </p>
+            </div>
+          </div>
+          <button onClick={onClose} className="w-6 h-6 flex items-center justify-center rounded-full bg-zinc-800 hover:bg-zinc-700 transition-colors flex-shrink-0">
+            <svg className="w-3 h-3 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Step 1: Time range */}
+        {step === "time" && (
+          <div className="px-5 py-5 space-y-4">
+            <div className="flex gap-3">
+              <div className="flex-1">
+                <label className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest block mb-2">Start</label>
+                <select
+                  value={customStart}
+                  onChange={e => setCustomStart(e.target.value)}
+                  className="w-full bg-zinc-900 border border-white/8 rounded-xl px-3 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-violet-500/50 appearance-none"
+                >
+                  {startOptions.slice(0, -1).map(t => (
+                    <option key={t} value={t}>{t.replace(/^0/, "")}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex items-end pb-2.5 text-zinc-600">→</div>
+              <div className="flex-1">
+                <label className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest block mb-2">End</label>
+                <select
+                  value={customEnd}
+                  onChange={e => setCustomEnd(e.target.value)}
+                  className="w-full bg-zinc-900 border border-white/8 rounded-xl px-3 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-violet-500/50 appearance-none"
+                >
+                  {endOptions.map(t => (
+                    <option key={t} value={t}>{t.replace(/^0/, "")}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Visual bar */}
+            <div className="relative h-2 bg-zinc-800 rounded-full overflow-hidden">
+              <div
+                className="absolute h-full bg-violet-500/60 rounded-full"
+                style={{
+                  left: `${((new Date(buildISO(customStart, slot.start)).getTime() - new Date(slot.start).getTime()) / (new Date(slot.end).getTime() - new Date(slot.start).getTime())) * 100}%`,
+                  width: `${((new Date(buildISO(customEnd, slot.start)).getTime() - new Date(buildISO(customStart, slot.start)).getTime()) / (new Date(slot.end).getTime() - new Date(slot.start).getTime())) * 100}%`,
+                }}
+              />
+            </div>
+            <p className="text-xs text-zinc-500 text-center">{duration} selected out of {slotDuration(slot.start, slot.end)} available</p>
+
+            <button
+              onClick={() => setStep("activity")}
+              disabled={customEnd <= customStart}
+              className="w-full py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 disabled:opacity-40 text-white text-sm font-semibold transition-all"
+            >
+              Choose activity →
             </button>
           </div>
-          <p className="text-xs text-zinc-500">
-            {formatTime(slot.start)} – {formatTime(slot.end)} · {slotDuration(slot.start, slot.end)} free
-          </p>
-        </div>
+        )}
 
-        {/* Activity grid */}
-        <div className="px-4 py-4">
-          <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest mb-3">What do you want to do?</p>
-          <div className="grid grid-cols-4 gap-2">
-            {ACTIVITY_ORDER.map((type) => {
-              const cfg = ACTIVITY_CONFIGS[type];
-              const isSelected = selected === type;
-              return (
-                <button
-                  key={type}
-                  onClick={() => handleSelect(type)}
-                  className={`flex flex-col items-center gap-1.5 p-3 rounded-2xl border transition-all ${
-                    isSelected
-                      ? `${cfg.color} ${cfg.border}`
-                      : "bg-zinc-900 border-white/6 hover:border-white/12"
-                  }`}
-                >
-                  <span className="text-xl leading-none">{cfg.emoji}</span>
-                  <span className={`text-[10px] font-medium leading-tight text-center ${isSelected ? cfg.text : "text-zinc-500"}`}>
-                    {cfg.label.split(" ")[0]}
-                  </span>
-                </button>
-              );
-            })}
+        {/* Step 2: Activity type */}
+        {step === "activity" && (
+          <div className="px-4 py-4">
+            <div className="grid grid-cols-3 gap-2">
+              {ACTIVITY_ORDER.map(type => {
+                const c = ACTIVITY_CONFIGS[type];
+                return (
+                  <button
+                    key={type}
+                    onClick={() => handleSelectActivity(type)}
+                    className="flex flex-col items-center gap-2 p-3 rounded-2xl border border-white/6 bg-zinc-900 hover:border-white/16 hover:bg-zinc-800 transition-all group"
+                  >
+                    <span className="text-2xl leading-none">{c.emoji}</span>
+                    <span className="text-[11px] font-medium text-zinc-400 group-hover:text-zinc-200 text-center leading-tight">{c.label}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* Details (shown after selection) */}
-        {selected && (
-          <div className="px-4 pb-4 space-y-3">
-            <div className="border-t border-white/6 pt-4">
+        {/* Step 3: Details */}
+        {step === "details" && cfg && (
+          <div className="px-5 py-4 space-y-3">
+            {/* Title */}
+            <div>
               <label className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest block mb-1.5">Title</label>
               <input
                 value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder={ACTIVITY_CONFIGS[selected].label}
+                onChange={e => setTitle(e.target.value)}
+                placeholder={cfg.label}
                 className="w-full bg-zinc-900 border border-white/8 rounded-xl px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-violet-500/50"
               />
             </div>
-            <div className="flex gap-3">
-              <div className="flex-1">
-                <label className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest block mb-1.5">Start</label>
-                <input
-                  type="time"
-                  value={customStart}
-                  onChange={(e) => setCustomStart(e.target.value)}
-                  className="w-full bg-zinc-900 border border-white/8 rounded-xl px-3 py-2 text-sm text-zinc-200 focus:outline-none focus:border-violet-500/50"
-                />
-              </div>
-              <div className="flex-1">
-                <label className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest block mb-1.5">End</label>
-                <input
-                  type="time"
-                  value={customEnd}
-                  onChange={(e) => setCustomEnd(e.target.value)}
-                  className="w-full bg-zinc-900 border border-white/8 rounded-xl px-3 py-2 text-sm text-zinc-200 focus:outline-none focus:border-violet-500/50"
-                />
-              </div>
+
+            {/* Meeting-specific fields */}
+            {selected === "meeting" && (
+              <>
+                <div>
+                  <label className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest block mb-1.5">Attendees <span className="text-zinc-700 normal-case font-normal">(emails, comma-separated)</span></label>
+                  <input
+                    value={attendees}
+                    onChange={e => setAttendees(e.target.value)}
+                    placeholder="jane@company.com, bob@company.com"
+                    className="w-full bg-zinc-900 border border-white/8 rounded-xl px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-violet-500/50"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest block mb-1.5">Location / Link</label>
+                  <input
+                    value={location}
+                    onChange={e => setLocation(e.target.value)}
+                    placeholder="Zoom link or room name"
+                    className="w-full bg-zinc-900 border border-white/8 rounded-xl px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-violet-500/50"
+                  />
+                </div>
+              </>
+            )}
+
+            {/* Description / notes for all types */}
+            <div>
+              <label className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest block mb-1.5">
+                {selected === "meeting" ? "Agenda / Notes" : "Notes"} <span className="text-zinc-700 normal-case font-normal">(optional)</span>
+              </label>
+              <textarea
+                value={description}
+                onChange={e => setDescription(e.target.value)}
+                placeholder={selected === "meeting" ? "What's this meeting about?" : "Any notes…"}
+                rows={2}
+                className="w-full bg-zinc-900 border border-white/8 rounded-xl px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-violet-500/50 resize-none"
+              />
             </div>
+
             <button
               onClick={handleConfirm}
-              className={`w-full py-2.5 rounded-xl text-sm font-semibold transition-all ${ACTIVITY_CONFIGS[selected].color} ${ACTIVITY_CONFIGS[selected].text} border ${ACTIVITY_CONFIGS[selected].border} hover:opacity-90`}
+              className={`w-full py-2.5 rounded-xl text-sm font-semibold transition-all ${cfg.color} ${cfg.text} border ${cfg.border} hover:opacity-90`}
             >
-              {ACTIVITY_CONFIGS[selected].emoji} Add {title || ACTIVITY_CONFIGS[selected].label}
+              {cfg.emoji} Add to calendar
             </button>
           </div>
         )}

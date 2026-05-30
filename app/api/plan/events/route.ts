@@ -10,7 +10,7 @@ export async function POST(req: Request) {
   const userId = (session as any)?.dbUserId as string | undefined;
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { title, start, end, description, colorId } = await req.json();
+  const { title, start, end, description, colorId, attendees, location } = await req.json();
 
   const connections = await getUserCalendarConnections(userId);
   if (!connections.length) return NextResponse.json({ error: "No calendars connected" }, { status: 400 });
@@ -18,11 +18,18 @@ export async function POST(req: Request) {
   const conn = connections[0];
   const token = await getValidAccessToken(conn.id);
 
-  const body = {
+  // Parse attendees string into Google Calendar format
+  const attendeeList = attendees
+    ? (attendees as string).split(",").map((e: string) => e.trim()).filter(Boolean).map((email: string) => ({ email }))
+    : [];
+
+  const body: Record<string, unknown> = {
     summary: title,
     description: description ?? "",
+    location: location ?? "",
     start: { dateTime: start, timeZone: "UTC" },
     end: { dateTime: end, timeZone: "UTC" },
+    ...(attendeeList.length > 0 ? { attendees: attendeeList } : {}),
     ...(colorId ? { colorId } : {}),
   };
 

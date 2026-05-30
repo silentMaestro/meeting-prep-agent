@@ -92,7 +92,7 @@ export default function DayPlanner() {
   const totalFreeHours = freeSlots.reduce((acc, s) =>
     acc + (new Date(s.end).getTime() - new Date(s.start).getTime()) / 3600000, 0);
 
-  async function handleAddBlock(block: Omit<TimeBlock, "id" | "gcalEventId">) {
+  async function handleAddBlock(block: Omit<TimeBlock, "id" | "gcalEventId"> & { attendees?: string; location?: string }) {
     setSaving(true);
     setPickerSlot(null);
     try {
@@ -103,7 +103,9 @@ export default function DayPlanner() {
           title: block.title,
           start: block.start,
           end: block.end,
-          description: `Added via Pocket PA · ${ACTIVITY_CONFIGS[block.type].label}`,
+          description: block.description || `Added via Pocket PA · ${ACTIVITY_CONFIGS[block.type].label}`,
+          attendees: (block as any).attendees,
+          location: (block as any).location,
         }),
       });
       const data = await res.json();
