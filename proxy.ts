@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const protectedPaths = ["/", "/api/meetings", "/api/research"];
+const protectedPaths = ["/", "/settings", "/api/meetings", "/api/research", "/api/connect", "/api/digest"];
 
 export default function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;

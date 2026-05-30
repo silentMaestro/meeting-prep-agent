@@ -1,6 +1,7 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { getUpcomingMeetings } from "@/lib/calendar";
+import { getUserCalendarConnections, getValidAccessToken } from "@/lib/calendar-connections";
 import { NextResponse, connection } from "next/server";
 import { db } from "@/lib/db";
 
@@ -11,31 +12,53 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const accessToken = (session as any).accessToken as string;
   const dbUserId = (session as any).dbUserId as string | undefined;
-
-  if (!accessToken) {
-    return NextResponse.json({ error: "No access token" }, { status: 401 });
+  if (!dbUserId) {
+    return NextResponse.json({ error: "No user record" }, { status: 400 });
   }
 
-  try {
-    const meetings = await getUpcomingMeetings(accessToken);
+  // Get all connected calendars for this user
+  const connections = await getUserCalendarConnections(dbUserId);
 
-    // Persist meetings + contacts to DB in the background
-    if (dbUserId) {
-      persistMeetingsAndContacts(dbUserId, meetings).catch(console.error);
+  if (connections.length === 0) {
+    // No calendars connected yet — return empty with a hint
+    return NextResponse.json({ meetings: [], noCalendars: true });
+  }
+
+  // Fetch meetings from all connected accounts in parallel, merge and deduplicate
+  const results = await Promise.allSettled(
+    connections.map(async (conn) => {
+      const accessToken = await getValidAccessToken(conn.id);
+      const meetings = await getUpcomingMeetings(accessToken);
+      return meetings.map((m: any) => ({ ...m, calendarAccount: conn.accountEmail }));
+    })
+  );
+
+  const allMeetings: any[] = [];
+  const seen = new Set<string>();
+
+  for (const result of results) {
+    if (result.status === "fulfilled") {
+      for (const m of result.value) {
+        if (!seen.has(m.id)) {
+          seen.add(m.id);
+          allMeetings.push(m);
+        }
+      }
     }
-
-    return NextResponse.json({ meetings });
-  } catch (err: any) {
-    console.error("Calendar error:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
   }
+
+  // Sort by start time
+  allMeetings.sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
+
+  // Persist in background
+  persistMeetingsAndContacts(dbUserId, allMeetings).catch(console.error);
+
+  return NextResponse.json({ meetings: allMeetings });
 }
 
 async function persistMeetingsAndContacts(userId: string, meetings: any[]) {
   for (const m of meetings) {
-    // Upsert meeting
     const meeting = await db.meeting.upsert({
       where: { userId_gcalEventId: { userId, gcalEventId: m.id } },
       create: {
@@ -56,7 +79,6 @@ async function persistMeetingsAndContacts(userId: string, meetings: any[]) {
       },
     });
 
-    // Upsert each attendee as a contact + link to meeting
     for (const attendee of m.attendees) {
       const contact = await db.contact.upsert({
         where: { userId_email: { userId, email: attendee.email } },
@@ -72,7 +94,6 @@ async function persistMeetingsAndContacts(userId: string, meetings: any[]) {
         },
       });
 
-      // Link contact to meeting (ignore if already exists)
       await db.meetingContact.upsert({
         where: { meetingId_contactId: { meetingId: meeting.id, contactId: contact.id } },
         create: { meetingId: meeting.id, contactId: contact.id },
