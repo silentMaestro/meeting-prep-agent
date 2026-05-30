@@ -22,12 +22,18 @@ export async function getUpcomingMeetings(accessToken: string): Promise<Meeting[
   const calendar = google.calendar({ version: "v3", auth });
 
   const now = new Date();
-  const twoDaysOut = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000);
+  // Start of today (midnight) so past meetings still show
+  const startOfToday = new Date(now);
+  startOfToday.setHours(0, 0, 0, 0);
+  // End of tomorrow (11:59:59pm)
+  const endOfTomorrow = new Date(startOfToday);
+  endOfTomorrow.setDate(endOfTomorrow.getDate() + 2);
+  endOfTomorrow.setMilliseconds(-1);
 
   const response = await calendar.events.list({
     calendarId: "primary",
-    timeMin: now.toISOString(),
-    timeMax: twoDaysOut.toISOString(),
+    timeMin: startOfToday.toISOString(),
+    timeMax: endOfTomorrow.toISOString(),
     singleEvents: true,
     orderBy: "startTime",
     maxResults: 20,
