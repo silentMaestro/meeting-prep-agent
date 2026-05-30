@@ -1,0 +1,187 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  // directUrl = env("DIRECT_URL") — uncomment when using Supabase connection pooling
+}
+
+// ─────────────────────────────────────────────
+// Users — multi-user ready (RLS enforced later)
+// ─────────────────────────────────────────────
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  name          String?
+  avatarUrl     String?
+  googleId      String?  @unique
+  timezone      String   @default("UTC")
+  digestTime    String   @default("08:00")
+  digestEnabled Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  contacts          Contact[]
+  meetings          Meeting[]
+  actionItems       ActionItem[]
+  digests           Digest[]
+}
+
+// ─────────────────────────────────────────────
+// Contacts — one record per person, grows over time
+// ─────────────────────────────────────────────
+model Contact {
+  id          String    @id @default(cuid())
+  userId      String
+  email       String
+  name        String
+  company     String?
+  role        String?
+  linkedinUrl String?
+  avatarUrl   String?
+  bio         String?   @db.Text
+  notes       String?   @db.Text
+  lastMetAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  meetingContacts   MeetingContact[]
+  actionItems       ActionItem[]
+  researchSnapshots ResearchSnapshot[]
+
+  @@unique([userId, email])
+  @@index([userId])
+}
+
+// Point-in-time snapshot of what the agent found
+model ResearchSnapshot {
+  id        String   @id @default(cuid())
+  contactId String
+  meetingId String?
+  bio       String?  @db.Text
+  role      String?
+  links     Json     @default("[]")
+  rawJson   Json
+  createdAt DateTime @default(now())
+
+  contact Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  meeting Meeting? @relation(fields: [meetingId], references: [id])
+
+  @@index([contactId])
+}
+
+// ─────────────────────────────────────────────
+// Meetings
+// ─────────────────────────────────────────────
+model Meeting {
+  id          String        @id @default(cuid())
+  userId      String
+  gcalEventId String
+  title       String
+  startAt     DateTime
+  endAt       DateTime
+  location    String?
+  description String?       @db.Text
+  status      MeetingStatus @default(UPCOMING)
+  briefJson   Json?
+  notes       String?       @db.Text
+  summary     String?       @db.Text
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  meetingContacts   MeetingContact[]
+  actionItems       ActionItem[]
+  attachments       Attachment[]
+  researchSnapshots ResearchSnapshot[]
+
+  @@unique([userId, gcalEventId])
+  @@index([userId, startAt])
+}
+
+enum MeetingStatus {
+  UPCOMING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+model MeetingContact {
+  meetingId String
+  contactId String
+
+  meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  contact Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@id([meetingId, contactId])
+}
+
+// ─────────────────────────────────────────────
+// Action Items
+// ─────────────────────────────────────────────
+model ActionItem {
+  id          String           @id @default(cuid())
+  userId      String
+  meetingId   String?
+  contactId   String?
+  description String           @db.Text
+  dueDate     DateTime?
+  status      ActionItemStatus @default(OPEN)
+  source      ActionItemSource @default(MANUAL)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  meeting Meeting? @relation(fields: [meetingId], references: [id])
+  contact Contact? @relation(fields: [contactId], references: [id])
+
+  @@index([userId, status])
+  @@index([userId, dueDate])
+}
+
+enum ActionItemStatus {
+  OPEN
+  IN_PROGRESS
+  DONE
+  CANCELLED
+}
+
+enum ActionItemSource {
+  MANUAL
+  AGENT_EXTRACTED
+}
+
+// ─────────────────────────────────────────────
+// Attachments — files from calendar invites
+// ─────────────────────────────────────────────
+model Attachment {
+  id            String   @id @default(cuid())
+  meetingId     String
+  driveFileId   String?
+  title         String
+  mimeType      String?
+  extractedText String?  @db.Text
+  url           String?
+  createdAt     DateTime @default(now())
+
+  meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+
+  @@index([meetingId])
+}
+
+// ─────────────────────────────────────────────
+// Digests — record of every morning email sent
+// ─────────────────────────────────────────────
+model Digest {
+  id          String   @id @default(cuid())
+  userId      String
+  sentAt      DateTime @default(now())
+  contentJson Json
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, sentAt])
+}
