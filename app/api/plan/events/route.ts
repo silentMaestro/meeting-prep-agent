@@ -10,7 +10,7 @@ export async function POST(req: Request) {
   const userId = (session as any)?.dbUserId as string | undefined;
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { title, start, end, description, colorId, attendees, location } = await req.json();
+  const { title, start, end, description, colorId, attendees, location, timeZone } = await req.json();
 
   const connections = await getUserCalendarConnections(userId);
   if (!connections.length) return NextResponse.json({ error: "No calendars connected" }, { status: 400 });
@@ -27,8 +27,8 @@ export async function POST(req: Request) {
     summary: title,
     description: description ?? "",
     location: location ?? "",
-    start: { dateTime: start, timeZone: "UTC" },
-    end: { dateTime: end, timeZone: "UTC" },
+    start: { dateTime: start, timeZone: timeZone ?? "UTC" },
+    end: { dateTime: end, timeZone: timeZone ?? "UTC" },
     ...(attendeeList.length > 0 ? { attendees: attendeeList } : {}),
     ...(colorId ? { colorId } : {}),
   };

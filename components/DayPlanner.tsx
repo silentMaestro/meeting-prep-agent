@@ -106,6 +106,7 @@ export default function DayPlanner() {
           description: block.description || `Added via Pocket PA · ${ACTIVITY_CONFIGS[block.type].label}`,
           attendees: (block as any).attendees,
           location: (block as any).location,
+          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         }),
       });
       const data = await res.json();
