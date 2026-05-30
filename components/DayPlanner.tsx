@@ -240,7 +240,7 @@ export default function DayPlanner({ meetings, onSelectMeeting }: Props) {
   const [now, setNow] = useState<number | null>(nowOffset());
   const [selectedBlock, setSelectedBlock] = useState<TimeBlock | null>(null);
   const [dayStart, setDayStart] = useState("07:00");
-  const [dayEnd, setDayEnd] = useState("22:00");
+  const [dayEnd, setDayEnd] = useState("23:30");
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {

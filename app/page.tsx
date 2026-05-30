@@ -32,7 +32,7 @@ export default function Home() {
   const [noCalendars, setNoCalendars] = useState(false);
   const fetchedRef = useRef(false);
   const [dayStart, setDayStart] = useState("07:00");
-  const [dayEnd, setDayEnd] = useState("22:00");
+  const [dayEnd, setDayEnd] = useState("23:30");
   const [savingSchedule, setSavingSchedule] = useState(false);
 
   // Load day schedule settings
@@ -247,9 +247,11 @@ export default function Home() {
                             onChange={e => setDayStart(e.target.value)}
                             className="w-full bg-zinc-900 border border-white/8 rounded-xl px-3 py-2 text-sm text-zinc-200 focus:outline-none focus:border-violet-500/50 appearance-none"
                           >
-                            {Array.from({ length: 13 }, (_, i) => i + 4).map(h => {
-                              const val = `${String(h).padStart(2, "0")}:00`;
-                              const label = h < 12 ? `${h}:00 am` : h === 12 ? "12:00 pm" : `${h - 12}:00 pm`;
+                            {Array.from({ length: 17 }, (_, i) => i * 30 + 4 * 60).map(mins => {
+                              const h = Math.floor(mins / 60), m = mins % 60;
+                              const val = `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`;
+                              const ampm = h < 12 ? "am" : "pm";
+                              const label = `${h % 12 || 12}:${String(m).padStart(2,"0")} ${ampm}`;
                               return <option key={val} value={val}>{label}</option>;
                             })}
                           </select>
@@ -262,9 +264,11 @@ export default function Home() {
                             onChange={e => setDayEnd(e.target.value)}
                             className="w-full bg-zinc-900 border border-white/8 rounded-xl px-3 py-2 text-sm text-zinc-200 focus:outline-none focus:border-violet-500/50 appearance-none"
                           >
-                            {Array.from({ length: 13 }, (_, i) => i + 12).map(h => {
-                              const val = `${String(h).padStart(2, "0")}:00`;
-                              const label = h === 12 ? "12:00 pm" : `${h - 12}:00 pm`;
+                            {Array.from({ length: 25 }, (_, i) => i * 30 + 12 * 60).map(mins => {
+                              const h = Math.floor(mins / 60), m = mins % 60;
+                              const val = `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`;
+                              const ampm = h < 12 ? "am" : "pm";
+                              const label = `${h % 12 || 12}:${String(m).padStart(2,"0")} ${ampm}`;
                               return <option key={val} value={val}>{label}</option>;
                             })}
                           </select>

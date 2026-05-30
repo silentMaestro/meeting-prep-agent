@@ -41,8 +41,8 @@ function mealHints(dateStr: string, dayStartTime: string, dayEndTime: string): s
   const breakfastH = startH < 10 ? startH + 0.5 : null;
   // Lunch: noon, or midpoint of morning if day starts late
   const lunchH = startH < 13 ? 12 : Math.round((startH + 14) / 2);
-  // Dinner: 2h before day end (if day ends after 5pm)
-  const dinnerH = endH > 17 ? endH - 2 : null;
+  // Dinner: around 6:30-7pm regardless of when the day ends (if ends after 5pm)
+  const dinnerH = endH > 17 ? Math.min(endH - 1.5, 19) : null;
 
   const fmt = (h: number) => {
     const hh = Math.floor(h);
@@ -74,7 +74,7 @@ export async function GET(req: Request) {
     select: { dayStartTime: true, dayEndTime: true },
   });
   const dayStartTime = user?.dayStartTime ?? "07:00";
-  const dayEndTime   = user?.dayEndTime   ?? "22:00";
+  const dayEndTime   = user?.dayEndTime   ?? "23:30";
 
   const dayStart = new Date(`${dateStr}T00:00:00`);
   const dayEnd   = new Date(`${dateStr}T23:59:59`);
