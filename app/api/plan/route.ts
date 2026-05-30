@@ -41,8 +41,8 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const dateStr = searchParams.get("date") ?? new Date().toISOString().split("T")[0];
 
-  const dayStart = new Date(`${dateStr}T07:00:00`);
-  const dayEnd   = new Date(`${dateStr}T20:00:00`);
+  const dayStart = new Date(`${dateStr}T00:00:00`);
+  const dayEnd   = new Date(`${dateStr}T23:59:59`);
 
   // ── Read from DB (fast, no Google call) ──────────────────────────────
   const dbMeetings = await db.meeting.findMany({

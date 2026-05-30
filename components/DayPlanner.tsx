@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { TimeBlock, ActivityType, ACTIVITY_CONFIGS, DayPlan, Meeting } from "@/types";
 import ActivityPicker from "./ActivityPicker";
 
 const HOUR_HEIGHT = 64;
-const DAY_START_HOUR = 7;
-const DAY_END_HOUR = 20;
+const DAY_START_HOUR = 0;   // midnight — full day scrollable
+const DAY_END_HOUR = 24;
 const TOTAL_HOURS = DAY_END_HOUR - DAY_START_HOUR;
 
 function timeToOffset(iso: string): number {
@@ -42,8 +42,8 @@ function nowOffset(): number | null {
 interface FreeSlot { start: string; end: string; }
 
 function computeFreeSlots(blocks: TimeBlock[], dateStr: string): FreeSlot[] {
-  const dayStart = new Date(`${dateStr}T07:00:00`);
-  const dayEnd   = new Date(`${dateStr}T20:00:00`);
+  const dayStart = new Date(`${dateStr}T07:00:00`); // free slots still 7am–10pm
+  const dayEnd   = new Date(`${dateStr}T22:00:00`);
   const sorted = [...blocks]
     .filter(b => !b.isFree)
     .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
@@ -228,11 +228,23 @@ export default function DayPlanner({ meetings, onSelectMeeting }: Props) {
   const [activeTab, setActiveTab] = useState<"timeline" | "suggest">("timeline");
   const [now, setNow] = useState<number | null>(nowOffset());
   const [selectedBlock, setSelectedBlock] = useState<TimeBlock | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const t = setInterval(() => setNow(nowOffset()), 60000);
     return () => clearInterval(t);
   }, []);
+
+  // Auto-scroll to current time (or 8am if outside day hours) once plan loads
+  useEffect(() => {
+    if (!plan || !scrollRef.current) return;
+    const now = new Date();
+    const targetHour = (now.getHours() > 0 && now.getHours() < 23)
+      ? now.getHours() - 1.5   // a bit above current time
+      : 8;                      // default to 8am
+    const scrollTo = Math.max(0, targetHour * HOUR_HEIGHT - 40);
+    scrollRef.current.scrollTop = scrollTo;
+  }, [plan]);
 
   const fetchPlan = useCallback(async () => {
     try {
@@ -371,14 +383,14 @@ export default function DayPlanner({ meetings, onSelectMeeting }: Props) {
 
       {/* Timeline view */}
       {activeTab === "timeline" && (
-        <div className="flex-1 overflow-y-auto px-4 py-4">
+        <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4">
           <div className="relative" style={{ height: TOTAL_HOURS * HOUR_HEIGHT }}>
 
             {/* Hour grid lines */}
             {Array.from({ length: TOTAL_HOURS + 1 }).map((_, i) => (
               <div key={i} className="absolute left-0 right-0 flex items-center gap-2" style={{ top: i * HOUR_HEIGHT }}>
                 <span className="text-[10px] text-zinc-700 w-10 text-right flex-shrink-0">
-                  {((DAY_START_HOUR + i) % 12 || 12)}{(DAY_START_HOUR + i) < 12 ? "am" : "pm"}
+                  {(DAY_START_HOUR + i) === 0 ? "12am" : (DAY_START_HOUR + i) === 12 ? "12pm" : (DAY_START_HOUR + i) < 12 ? `${DAY_START_HOUR + i}am` : `${(DAY_START_HOUR + i) - 12}pm`}
                 </span>
                 <div className="flex-1 border-t border-white/4" />
               </div>
