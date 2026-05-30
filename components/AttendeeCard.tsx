@@ -3,7 +3,7 @@ import { AttendeeResearch } from "@/types";
 function Avatar({ name }: { name: string }) {
   const initials = name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase();
   return (
-    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-semibold text-sm flex-shrink-0 shadow-lg shadow-blue-900/30">
+    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-white font-semibold text-sm flex-shrink-0 shadow-lg shadow-violet-900/30">
       {initials}
     </div>
   );
@@ -89,7 +89,7 @@ export default function AttendeeCard({ attendee }: { attendee: AttendeeResearch 
               <ul className="space-y-2">
                 {attendee.talkingPoints.map((point, i) => (
                   <li key={i} className="flex gap-2.5 items-start">
-                    <span className="flex-shrink-0 w-4 h-4 rounded-md bg-blue-500/15 text-blue-400 text-[10px] font-bold flex items-center justify-center mt-0.5">
+                    <span className="flex-shrink-0 w-4 h-4 rounded-md bg-violet-500/15 text-violet-400 text-[10px] font-bold flex items-center justify-center mt-0.5">
                       {i + 1}
                     </span>
                     <span className="text-sm text-zinc-300 leading-snug">{point}</span>

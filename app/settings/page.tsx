@@ -21,7 +21,7 @@ export default function SettingsPage() {
   if (status === "loading") {
     return (
       <div className="flex items-center justify-center h-screen bg-[#0a0a0a]">
-        <div className="w-5 h-5 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
+        <div className="w-5 h-5 border-2 border-violet-500/30 border-t-violet-500 rounded-full animate-spin" />
       </div>
     );
   }
@@ -54,7 +54,7 @@ export default function SettingsPage() {
             {user?.image ? (
               <img src={user.image} alt="" className="w-10 h-10 rounded-full ring-1 ring-white/10 flex-shrink-0" />
             ) : (
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-semibold text-sm flex-shrink-0">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-white font-semibold text-sm flex-shrink-0">
                 {user?.name?.[0]?.toUpperCase() ?? "?"}
               </div>
             )}

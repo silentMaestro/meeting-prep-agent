@@ -89,7 +89,7 @@ export default function MeetingList({ selectedId, onSelect }: Props) {
         </div>
         <Link
           href="/settings"
-          className="text-xs font-medium text-blue-400 hover:text-blue-300 bg-blue-500/10 hover:bg-blue-500/15 border border-blue-500/20 px-3 py-1.5 rounded-lg transition-all"
+          className="text-xs font-medium text-violet-400 hover:text-violet-300 bg-violet-500/10 hover:bg-violet-500/15 border border-violet-500/20 px-3 py-1.5 rounded-lg transition-all"
         >
           Connect Calendar →
         </Link>
@@ -124,12 +124,12 @@ export default function MeetingList({ selectedId, onSelect }: Props) {
                     onClick={() => onSelect(m)}
                     className={`w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all group ${
                       isSelected
-                        ? "bg-blue-600/15 border border-blue-500/20"
+                        ? "bg-violet-600/15 border border-violet-500/20"
                         : "hover:bg-white/4 border border-transparent"
                     }`}
                   >
                     {/* Time block */}
-                    <div className={`w-9 flex-shrink-0 text-right ${isSelected ? "text-blue-400" : "text-zinc-600"}`}>
+                    <div className={`w-9 flex-shrink-0 text-right ${isSelected ? "text-violet-400" : "text-zinc-600"}`}>
                       <p className="text-[11px] font-semibold leading-tight">{formatTime(m.start).split(" ")[0]}</p>
                       <p className="text-[9px] leading-tight">{formatTime(m.start).split(" ")[1]}</p>
                     </div>

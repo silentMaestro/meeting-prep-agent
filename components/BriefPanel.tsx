@@ -27,8 +27,8 @@ export default function BriefPanel({ brief }: { brief: MeetingBrief }) {
       </div>
 
       {/* Agenda */}
-      <section className="bg-blue-500/8 border border-blue-500/20 rounded-2xl px-4 py-4">
-        <p className="text-[10px] font-semibold text-blue-400 uppercase tracking-widest mb-1.5">Agenda</p>
+      <section className="bg-violet-500/8 border border-violet-500/20 rounded-2xl px-4 py-4">
+        <p className="text-[10px] font-semibold text-violet-400 uppercase tracking-widest mb-1.5">Agenda</p>
         <p className="text-sm text-zinc-300 leading-relaxed">{brief.agenda}</p>
       </section>
 

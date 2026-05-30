@@ -75,7 +75,7 @@ export default function AgentProgress({ meeting, onBriefReady }: Props) {
       {/* Status icon */}
       <div className="mb-5">
         {globalStatus === "running" && (
-          <div className="w-10 h-10 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
+          <div className="w-10 h-10 border-2 border-violet-500/30 border-t-violet-500 rounded-full animate-spin" />
         )}
         {globalStatus === "done" && (
           <div className="w-10 h-10 bg-emerald-500/15 border border-emerald-500/20 rounded-full flex items-center justify-center">
@@ -102,13 +102,13 @@ export default function AgentProgress({ meeting, onBriefReady }: Props) {
       <div className="w-full max-w-sm space-y-2">
         {steps.map((step) => (
           <div key={step.id} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl border transition-all ${
-            step.status === "running" ? "bg-blue-500/8 border-blue-500/20" :
+            step.status === "running" ? "bg-violet-500/8 border-violet-500/20" :
             step.status === "done"    ? "bg-zinc-900/50 border-white/4" :
                                         "bg-red-500/8 border-red-500/20"
           }`}>
             <div className="flex-shrink-0">
               {step.status === "running" && (
-                <div className="w-3 h-3 border-[1.5px] border-blue-400/40 border-t-blue-400 rounded-full animate-spin" />
+                <div className="w-3 h-3 border-[1.5px] border-violet-400/40 border-t-violet-400 rounded-full animate-spin" />
               )}
               {step.status === "done" && (
                 <svg className="w-3 h-3 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>

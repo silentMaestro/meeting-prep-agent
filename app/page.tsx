@@ -42,7 +42,7 @@ export default function Home() {
     return (
       <div className="flex items-center justify-center h-full min-h-screen">
         <div className="flex flex-col items-center gap-3">
-          <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+          <div className="w-6 h-6 border-2 border-violet-500/30 border-t-violet-500 rounded-full animate-spin" />
           <p className="text-sm text-zinc-500">Loading…</p>
         </div>
       </div>
@@ -70,7 +70,7 @@ export default function Home() {
               </svg>
             </button>
           )}
-          <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center flex-shrink-0">
+          <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-violet-500 to-violet-700 flex items-center justify-center flex-shrink-0">
             <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
             </svg>
@@ -88,7 +88,7 @@ export default function Home() {
             onClick={() => setMobileView(mobileView === "digest" ? "meetings" : "digest")}
             className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
               mobileView === "digest"
-                ? "bg-blue-600 text-white shadow-lg shadow-blue-900/30"
+                ? "bg-violet-600 text-white shadow-lg shadow-violet-900/30"
                 : "text-zinc-400 hover:text-zinc-200 hover:bg-white/6"
             }`}
           >

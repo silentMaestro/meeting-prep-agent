@@ -7,7 +7,7 @@ import Link from "next/link";
 
 function Logo() {
   return (
-    <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow-lg shadow-blue-900/40 mb-4">
+    <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-violet-500 to-violet-700 flex items-center justify-center shadow-lg shadow-violet-900/40 mb-4">
       <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
       </svg>
@@ -67,7 +67,7 @@ function SignInForm() {
     <div className="min-h-screen bg-[#0a0a0a] flex flex-col items-center justify-center px-4">
       {/* Subtle radial glow behind card */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-        <div className="w-[500px] h-[500px] bg-blue-600/5 rounded-full blur-3xl" />
+        <div className="w-[500px] h-[500px] bg-violet-600/5 rounded-full blur-3xl" />
       </div>
 
       <div className="relative w-full max-w-sm">
@@ -103,7 +103,7 @@ function SignInForm() {
                 type="email" required autoComplete="email"
                 value={email} onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
-                className="w-full px-3 py-2.5 rounded-xl bg-[#1c1c1c] border border-white/8 text-sm text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-colors"
+                className="w-full px-3 py-2.5 rounded-xl bg-[#1c1c1c] border border-white/8 text-sm text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500/50 transition-colors"
               />
             </div>
             <div>
@@ -112,12 +112,12 @@ function SignInForm() {
                 type="password" required autoComplete="current-password"
                 value={password} onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full px-3 py-2.5 rounded-xl bg-[#1c1c1c] border border-white/8 text-sm text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-colors"
+                className="w-full px-3 py-2.5 rounded-xl bg-[#1c1c1c] border border-white/8 text-sm text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500/50 transition-colors"
               />
             </div>
             <button
               type="submit" disabled={loading}
-              className="w-full bg-blue-600 hover:bg-blue-500 text-white py-2.5 rounded-xl text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed mt-1 shadow-lg shadow-blue-900/30"
+              className="w-full bg-violet-600 hover:bg-violet-500 text-white py-2.5 rounded-xl text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed mt-1 shadow-lg shadow-violet-900/30"
             >
               {loading ? "Signing in…" : "Sign in"}
             </button>
@@ -140,7 +140,7 @@ function SignInForm() {
 
         <p className="text-center text-sm text-zinc-600 mt-5">
           Don't have an account?{" "}
-          <Link href="/auth/signup" className="text-blue-400 hover:text-blue-300 font-medium transition-colors">
+          <Link href="/auth/signup" className="text-violet-400 hover:text-violet-300 font-medium transition-colors">
             Sign up
           </Link>
         </p>

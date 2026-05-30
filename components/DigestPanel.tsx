@@ -34,7 +34,7 @@ export default function DigestPanel() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="w-5 h-5 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
+        <div className="w-5 h-5 border-2 border-violet-500/30 border-t-violet-500 rounded-full animate-spin" />
       </div>
     );
   }
@@ -89,7 +89,7 @@ export default function DigestPanel() {
                       </p>
                     </div>
                     {m.hasBrief && (
-                      <span className="flex-shrink-0 text-[10px] bg-blue-500/10 text-blue-400 border border-blue-500/20 px-2 py-0.5 rounded-full font-medium mt-0.5">
+                      <span className="flex-shrink-0 text-[10px] bg-violet-500/10 text-violet-400 border border-violet-500/20 px-2 py-0.5 rounded-full font-medium mt-0.5">
                         briefed
                       </span>
                     )}
@@ -97,7 +97,7 @@ export default function DigestPanel() {
                   <div className="flex flex-wrap gap-1.5 mt-2.5">
                     {m.attendees.map((a) => (
                       <span key={a.email} className="inline-flex items-center gap-1.5 bg-zinc-800 rounded-lg px-2 py-1 text-xs text-zinc-400">
-                        <span className="w-4 h-4 rounded-md bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center text-[9px] font-bold flex-shrink-0">
+                        <span className="w-4 h-4 rounded-md bg-gradient-to-br from-violet-500 to-indigo-600 text-white flex items-center justify-center text-[9px] font-bold flex-shrink-0">
                           {a.name[0].toUpperCase()}
                         </span>
                         {a.name}
