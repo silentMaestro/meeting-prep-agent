@@ -24,6 +24,7 @@ export default function Home() {
   const [brief, setBrief] = useState<MeetingBrief | null>(null);
   const [briefs, setBriefs] = useState<Record<string, MeetingBrief>>({});
   const [researching, setResearching] = useState(false);
+  const [refreshContext, setRefreshContext] = useState<string | undefined>(undefined);
 
   // Shared meetings state — fetched once, passed to all tabs
   const [meetings, setMeetings] = useState<Meeting[]>([]);
@@ -44,27 +45,45 @@ export default function Home() {
       .catch(() => setMeetingsLoading(false));
   }, [session]);
 
-  function handleSelectMeeting(meeting: Meeting) {
+  async function handleSelectMeeting(meeting: Meeting) {
     setSelectedMeeting(meeting);
+    // If we have it in memory, show instantly
     if (briefs[meeting.id]) {
       setBrief(briefs[meeting.id]);
       setResearching(false);
-    } else {
-      setBrief(null);
-      setResearching(true);
+      return;
     }
+    // If the meeting has a stored brief, fetch it directly from DB (no agent needed)
+    if ((meeting as any).hasBrief) {
+      setBrief(null);
+      setResearching(false);
+      try {
+        const res = await fetch(`/api/research?meetingId=${encodeURIComponent(meeting.id)}`);
+        const data = await res.json();
+        if (data.brief) {
+          setBriefs(prev => ({ ...prev, [meeting.id]: data.brief }));
+          setBrief(data.brief);
+          return;
+        }
+      } catch {}
+    }
+    // No brief yet — run the agent
+    setBrief(null);
+    setResearching(true);
   }
 
   function handleBriefReady(b: MeetingBrief) {
     setBriefs(prev => ({ ...prev, [b.meetingId]: b }));
     setBrief(b);
     setResearching(false);
+    setRefreshContext(undefined);
   }
 
   function handleBack() {
     setSelectedMeeting(null);
     setBrief(null);
     setResearching(false);
+    setRefreshContext(undefined);
   }
 
   if (status === "loading") {
@@ -133,11 +152,25 @@ export default function Home() {
         {showBriefView && (
           <div className="w-full md:flex-1 flex flex-col overflow-hidden">
             {researching && selectedMeeting && (
-              <AgentProgress meeting={selectedMeeting} onBriefReady={handleBriefReady} />
+              <AgentProgress meeting={selectedMeeting} onBriefReady={handleBriefReady} refreshContext={refreshContext} />
             )}
             {!researching && brief && (
               <div className="flex-1 overflow-y-auto">
-                <BriefPanel brief={brief} />
+                <BriefPanel
+                  brief={brief}
+                  onRefresh={(context) => {
+                    if (selectedMeeting) {
+                      setBriefs(prev => {
+                        const next = { ...prev };
+                        delete next[selectedMeeting.id];
+                        return next;
+                      });
+                    }
+                    setRefreshContext(context || undefined);
+                    setBrief(null);
+                    setResearching(true);
+                  }}
+                />
               </div>
             )}
           </div>

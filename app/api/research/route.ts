@@ -2,8 +2,28 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { runResearchAgent } from "@/lib/agent";
 import { Meeting, AgentEvent, MeetingBrief } from "@/types";
-import { connection } from "next/server";
+import { connection, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+
+// GET /api/research?meetingId=xxx — fetch stored brief from DB instantly
+export async function GET(req: Request) {
+  await connection();
+  const session = await getServerSession(authOptions);
+  const dbUserId = (session as any)?.dbUserId as string | undefined;
+  if (!dbUserId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { searchParams } = new URL(req.url);
+  const meetingId = searchParams.get("meetingId");
+  if (!meetingId) return NextResponse.json({ error: "Missing meetingId" }, { status: 400 });
+
+  const row = await db.meeting.findUnique({
+    where: { userId_gcalEventId: { userId: dbUserId, gcalEventId: meetingId } },
+    select: { briefJson: true },
+  });
+
+  if (!row?.briefJson) return NextResponse.json({ brief: null });
+  return NextResponse.json({ brief: row.briefJson as unknown as MeetingBrief });
+}
 
 export async function POST(req: Request) {
   await connection();
@@ -12,36 +32,8 @@ export async function POST(req: Request) {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  const { meeting }: { meeting: Meeting } = await req.json();
+  const { meeting, refreshContext }: { meeting: Meeting; refreshContext?: string } = await req.json();
   const dbUserId = (session as any).dbUserId as string | undefined;
-
-  // Check for cached brief first
-  if (dbUserId) {
-    const cached = await db.meeting.findUnique({
-      where: { userId_gcalEventId: { userId: dbUserId, gcalEventId: meeting.id } },
-      select: { briefJson: true },
-    });
-
-    if (cached?.briefJson) {
-      // Stream the cached brief immediately
-      const encoder = new TextEncoder();
-      const stream = new ReadableStream({
-        start(controller) {
-          const brief = cached.briefJson as unknown as MeetingBrief;
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "status", message: "Loading cached brief…" })}\n\n`));
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "brief_done", brief })}\n\n`));
-          controller.close();
-        },
-      });
-      return new Response(stream, {
-        headers: {
-          "Content-Type": "text/event-stream",
-          "Cache-Control": "no-cache",
-          Connection: "keep-alive",
-        },
-      });
-    }
-  }
 
   // No cache — run the agent and stream + save
   const stream = new ReadableStream({
@@ -52,7 +44,7 @@ export async function POST(req: Request) {
       };
 
       try {
-        for await (const event of runResearchAgent(meeting)) {
+        for await (const event of runResearchAgent(meeting, refreshContext)) {
           send(event);
 
           // When brief is ready, persist to DB

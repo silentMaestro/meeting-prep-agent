@@ -12,9 +12,10 @@ interface Step {
 interface Props {
   meeting: Meeting;
   onBriefReady: (brief: MeetingBrief) => void;
+  refreshContext?: string;
 }
 
-export default function AgentProgress({ meeting, onBriefReady }: Props) {
+export default function AgentProgress({ meeting, onBriefReady, refreshContext }: Props) {
   const [steps, setSteps] = useState<Step[]>([]);
   const [statusMsg, setStatusMsg] = useState("Preparing research…");
   const [globalStatus, setGlobalStatus] = useState<"running" | "done" | "error">("running");
@@ -31,7 +32,7 @@ export default function AgentProgress({ meeting, onBriefReady }: Props) {
         const res = await fetch("/api/research", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ meeting }),
+          body: JSON.stringify({ meeting, refreshContext }),
           signal: abortController.signal,
         });
 
@@ -103,7 +104,7 @@ export default function AgentProgress({ meeting, onBriefReady }: Props) {
 
     streamResearch();
     return () => abortController.abort();
-  }, [meeting.id]);
+  }, [meeting.id, refreshContext]);
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[50vh] px-6 py-12">

@@ -30,7 +30,7 @@ Use the meeting title and description as clues — they may contain the person's
 
 export function personResearchPrompt(
   attendee: Attendee,
-  meetingContext: { title: string; description?: string }
+  meetingContext: { title: string; description?: string; refreshContext?: string }
 ): string {
   const domain = attendee.email.split("@")[1];
   const emailUser = attendee.email.split("@")[0];
@@ -51,6 +51,9 @@ export function personResearchPrompt(
 4. Search "${name}" for recent articles, talks, or news`;
 
   const linkedInSearchUrl = `https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(name + (personal ? "" : " " + domain.split(".")[0]))}`;
+  const focusHint = meetingContext.refreshContext
+    ? `\n\nFOCUS AREA (user requested): ${meetingContext.refreshContext}\nPrioritise finding information relevant to this when searching and writing talking points.`
+    : "";
 
   return `Research this person I have an upcoming meeting with:
 Name: ${name}
@@ -59,7 +62,7 @@ ${companyHint}
 
 ${contextHint}
 
-${searchInstructions}
+${searchInstructions}${focusHint}
 
 IMPORTANT RULES:
 - Do not invent or guess any information — if you can't find it, say so.

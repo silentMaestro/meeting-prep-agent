@@ -9,7 +9,7 @@ function getClient() {
 
 async function researchAttendee(
   attendee: { email: string; displayName?: string },
-  meetingContext: { title: string; description?: string }
+  meetingContext: { title: string; description?: string; refreshContext?: string }
 ): Promise<AttendeeResearch> {
   const messages: Anthropic.MessageParam[] = [
     { role: "user", content: personResearchPrompt(attendee, meetingContext) },
@@ -102,9 +102,10 @@ Return JSON: {"agenda": "<2-3 sentence agenda>", "suggestedQuestions": ["q1", "q
 }
 
 export async function* runResearchAgent(
-  meeting: Meeting
+  meeting: Meeting,
+  refreshContext?: string
 ): AsyncGenerator<AgentEvent> {
-  yield { type: "status", message: `Starting research for "${meeting.title}"` };
+  yield { type: "status", message: refreshContext ? `Re-researching with new context…` : `Starting research for "${meeting.title}"` };
 
   const attendeeResults: AttendeeResearch[] = [];
 
@@ -113,7 +114,7 @@ export async function* runResearchAgent(
     yield { type: "status", message: `Researching ${name}...` };
 
     try {
-      const result = await researchAttendee(attendee, { title: meeting.title, description: meeting.description });
+      const result = await researchAttendee(attendee, { title: meeting.title, description: meeting.description, refreshContext });
       attendeeResults.push(result);
       yield { type: "attendee_done", attendee: result };
     } catch (err: any) {
