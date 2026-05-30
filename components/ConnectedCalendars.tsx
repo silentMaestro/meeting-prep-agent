@@ -36,12 +36,9 @@ export default function ConnectedCalendars({ showOnboardingPrompt = false }: { s
   useEffect(() => {
     fetch("/api/connect")
       .then((r) => r.json())
-      .then((d) => {
-        setConnections(d.connections ?? []);
-        setLoading(false);
-      })
+      .then((d) => { setConnections(d.connections ?? []); setLoading(false); })
       .catch(() => setLoading(false));
-  }, [justConnected]); // refetch after a new connection
+  }, [justConnected]);
 
   async function disconnect(id: string) {
     setDisconnecting(id);
@@ -52,9 +49,8 @@ export default function ConnectedCalendars({ showOnboardingPrompt = false }: { s
 
   return (
     <div className="space-y-4">
-      {/* Status banner */}
       {justConnected === "google" && (
-        <div className="flex items-center gap-2 bg-green-50 border border-green-100 rounded-xl px-4 py-3 text-sm text-green-700">
+        <div className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-4 py-3 text-sm text-emerald-400">
           <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
           </svg>
@@ -62,7 +58,7 @@ export default function ConnectedCalendars({ showOnboardingPrompt = false }: { s
         </div>
       )}
       {connectError && (
-        <div className="flex items-center gap-2 bg-red-50 border border-red-100 rounded-xl px-4 py-3 text-sm text-red-700">
+        <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 text-sm text-red-400">
           <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
           </svg>
@@ -70,51 +66,46 @@ export default function ConnectedCalendars({ showOnboardingPrompt = false }: { s
         </div>
       )}
 
-      {/* Connected accounts */}
       {loading ? (
         <div className="space-y-2">
-          {[1, 2].map((i) => (
-            <div key={i} className="h-16 bg-gray-100 rounded-2xl animate-pulse" />
-          ))}
+          {[1, 2].map((i) => <div key={i} className="h-14 bg-zinc-900 rounded-2xl animate-pulse" />)}
         </div>
       ) : connections.length === 0 ? (
         showOnboardingPrompt ? (
-          <div className="bg-blue-50 border border-blue-100 rounded-2xl px-5 py-6 text-center space-y-3">
-            <div className="w-12 h-12 bg-blue-100 rounded-2xl flex items-center justify-center mx-auto">
-              <svg className="w-6 h-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+          <div className="bg-blue-500/8 border border-blue-500/20 rounded-2xl px-5 py-6 text-center space-y-3">
+            <div className="w-10 h-10 bg-blue-500/15 rounded-xl flex items-center justify-center mx-auto">
+              <svg className="w-5 h-5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
               </svg>
             </div>
             <div>
-              <p className="text-sm font-semibold text-blue-900">Connect your first calendar</p>
-              <p className="text-xs text-blue-600 mt-1 leading-relaxed">
-                Pocket PA needs access to your calendar to research meetings, surface action items, and send your daily digest.
+              <p className="text-sm font-semibold text-zinc-200">Connect your first calendar</p>
+              <p className="text-xs text-zinc-500 mt-1 leading-relaxed">
+                Pocket PA needs calendar access to research meetings, surface action items, and send your daily digest.
               </p>
             </div>
           </div>
         ) : (
-          <div className="bg-amber-50 border border-amber-100 rounded-2xl px-4 py-5 text-center">
-            <p className="text-sm font-medium text-amber-800">No calendars connected</p>
-            <p className="text-xs text-amber-600 mt-1">Connect a calendar below to start syncing meetings.</p>
+          <div className="bg-amber-500/8 border border-amber-500/20 rounded-2xl px-4 py-4 text-center">
+            <p className="text-sm font-medium text-amber-300">No calendars connected</p>
+            <p className="text-xs text-amber-500/70 mt-0.5">Connect a calendar below to start syncing.</p>
           </div>
         )
       ) : (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm divide-y divide-gray-50 overflow-hidden">
+        <div className="bg-[#141414] rounded-2xl border border-white/6 divide-y divide-white/4 overflow-hidden">
           {connections.map((c) => (
             <div key={c.id} className="flex items-center gap-3 px-4 py-3">
-              <div className="w-9 h-9 rounded-xl bg-white border border-gray-200 flex items-center justify-center flex-shrink-0 shadow-sm">
+              <div className="w-8 h-8 rounded-xl bg-zinc-900 border border-white/8 flex items-center justify-center flex-shrink-0">
                 {c.provider === "google" && <GoogleIcon />}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900 truncate">{c.accountEmail}</p>
-                <p className="text-xs text-gray-400 capitalize">
-                  {c.provider} Calendar{c.label ? ` · ${c.label}` : ""}
-                </p>
+                <p className="text-sm font-medium text-zinc-200 truncate">{c.accountEmail}</p>
+                <p className="text-xs text-zinc-600 capitalize">{c.provider} Calendar{c.label ? ` · ${c.label}` : ""}</p>
               </div>
               <button
                 onClick={() => disconnect(c.id)}
                 disabled={disconnecting === c.id}
-                className="flex-shrink-0 text-xs text-red-400 hover:text-red-600 font-medium px-2 py-1 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-40"
+                className="flex-shrink-0 text-xs text-zinc-600 hover:text-red-400 font-medium px-2 py-1 rounded-lg hover:bg-red-500/10 transition-all disabled:opacity-40"
               >
                 {disconnecting === c.id ? "…" : "Disconnect"}
               </button>
@@ -123,21 +114,21 @@ export default function ConnectedCalendars({ showOnboardingPrompt = false }: { s
         </div>
       )}
 
-      {/* Add Google Calendar */}
+      {/* Add calendar */}
       <div>
-        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Add calendar</p>
+        <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest mb-3">Add calendar</p>
         <a
           href="/api/connect/google"
-          className="flex items-center gap-3 bg-white border border-gray-200 rounded-2xl px-4 py-3 hover:border-blue-300 hover:shadow-sm transition-all group"
+          className="flex items-center gap-3 bg-[#141414] border border-white/6 hover:border-white/12 rounded-2xl px-4 py-3 transition-all group"
         >
-          <div className="w-9 h-9 rounded-xl bg-white border border-gray-200 flex items-center justify-center flex-shrink-0 shadow-sm group-hover:border-blue-200">
+          <div className="w-8 h-8 rounded-xl bg-zinc-900 border border-white/8 flex items-center justify-center flex-shrink-0">
             <GoogleIcon />
           </div>
           <div className="flex-1">
-            <p className="text-sm font-medium text-gray-900">Google Calendar</p>
-            <p className="text-xs text-gray-400">Personal, work, or any Google account</p>
+            <p className="text-sm font-medium text-zinc-300">Google Calendar</p>
+            <p className="text-xs text-zinc-600">Personal, work, or any Google account</p>
           </div>
-          <svg className="w-4 h-4 text-gray-300 group-hover:text-blue-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <svg className="w-4 h-4 text-zinc-700 group-hover:text-zinc-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
           </svg>
         </a>

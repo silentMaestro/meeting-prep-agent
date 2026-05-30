@@ -43,7 +43,7 @@ export async function GET(req: Request) {
       // Send email
       if (process.env.RESEND_API_KEY) {
         await resend.emails.send({
-          from: "Pocket PA <digest@your-domain.com>",
+          from: process.env.EMAIL_FROM ?? "Pocket PA <onboarding@resend.dev>",
           to: user.email,
           subject: `Your day at a glance — ${new Date(data.date).toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}`,
           html,

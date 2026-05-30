@@ -3,121 +3,131 @@
 import { useEffect, useRef, useState } from "react";
 import { Meeting, AgentEvent, MeetingBrief } from "@/types";
 
+interface Step {
+  id: string;
+  label: string;
+  status: "running" | "done" | "error";
+}
+
 interface Props {
   meeting: Meeting;
   onBriefReady: (brief: MeetingBrief) => void;
 }
 
-interface Step {
-  text: string;
-  status: "running" | "done" | "error";
-}
-
 export default function AgentProgress({ meeting, onBriefReady }: Props) {
   const [steps, setSteps] = useState<Step[]>([]);
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const [statusMsg, setStatusMsg] = useState("Preparing research…");
+  const [globalStatus, setGlobalStatus] = useState<"running" | "done" | "error">("running");
+  const calledRef = useRef(false);
 
   useEffect(() => {
-    setSteps([]);
-    const controller = new AbortController();
+    if (calledRef.current) return;
+    calledRef.current = true;
 
-    fetch("/api/research", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ meeting }),
-      signal: controller.signal,
-    }).then(async (res) => {
-      if (!res.body) return;
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buf = "";
+    const es = new EventSource(`/api/research?meetingId=${meeting.id}`);
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buf += decoder.decode(value, { stream: true });
-        const lines = buf.split("\n");
-        buf = lines.pop() ?? "";
+    es.onmessage = (e) => {
+      const event: AgentEvent = JSON.parse(e.data);
 
-        for (const line of lines) {
-          if (!line.startsWith("data: ")) continue;
-          try {
-            const event: AgentEvent = JSON.parse(line.slice(6));
-            if (event.type === "status") {
-              setSteps((s) => [...s.slice(0, -1).map(x => x.status === "running" ? { ...x, status: "done" as const } : x), { text: event.message, status: "running" }]);
-            } else if (event.type === "attendee_done") {
-              setSteps((s) => [...s.map(x => x.status === "running" ? { ...x, status: "done" as const } : x), { text: `Researched ${event.attendee.name}`, status: "done" }]);
-            } else if (event.type === "news_done") {
-              setSteps((s) => [...s.map(x => x.status === "running" ? { ...x, status: "done" as const } : x), { text: `News for ${event.news.company}`, status: "done" }]);
-            } else if (event.type === "brief_done") {
-              setSteps((s) => s.map(x => ({ ...x, status: "done" as const })));
-              onBriefReady(event.brief);
-            } else if (event.type === "error") {
-              setSteps((s) => [...s.map(x => x.status === "running" ? { ...x, status: "error" as const } : x), { text: event.message, status: "error" }]);
-            }
-          } catch {}
+      if (event.type === "status") {
+        setStatusMsg(event.message);
+        // Add a step row for notable status messages
+        if (event.message.startsWith("Researching")) {
+          const email = event.message.replace("Researching ", "");
+          setSteps((prev) =>
+            prev.find((s) => s.id === email)
+              ? prev
+              : [...prev, { id: email, label: `Researching ${email}`, status: "running" }]
+          );
+        } else if (event.message.startsWith("Synthesizing")) {
+          setSteps((prev) => [...prev, { id: "__synth", label: "Synthesizing brief", status: "running" }]);
         }
+      } else if (event.type === "attendee_done") {
+        const email = event.attendee.email;
+        setSteps((prev) =>
+          prev.map((s) =>
+            s.id === email ? { ...s, status: "done", label: `Researched ${email}` } : s
+          )
+        );
+      } else if (event.type === "news_done") {
+        // no-op for step display
+      } else if (event.type === "brief_done") {
+        setSteps((prev) =>
+          prev.map((s) => s.id === "__synth" ? { ...s, status: "done", label: "Brief ready" } : s)
+        );
+        setGlobalStatus("done");
+        onBriefReady(event.brief);
+        es.close();
+      } else if (event.type === "error") {
+        setGlobalStatus("error");
+        setStatusMsg(event.message);
+        setSteps((prev) => prev.map((s) => s.status === "running" ? { ...s, status: "error" } : s));
+        es.close();
       }
-    }).catch(() => {});
+    };
 
-    return () => controller.abort();
+    es.onerror = () => { setGlobalStatus("error"); es.close(); };
+    return () => es.close();
   }, [meeting.id]);
 
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [steps]);
-
   return (
-    <div className="flex flex-col items-center justify-start min-h-full px-4 py-8 md:py-16">
-      <div className="w-full max-w-md">
-        {/* Spinner header */}
-        <div className="flex flex-col items-center mb-8">
-          <div className="relative w-14 h-14 mb-4">
-            <div className="w-14 h-14 rounded-full border-[3px] border-blue-100" />
-            <div className="absolute inset-0 w-14 h-14 rounded-full border-[3px] border-blue-500 border-t-transparent animate-spin" />
+    <div className="flex flex-col items-center justify-center min-h-[50vh] px-6 py-12">
+      {/* Status icon */}
+      <div className="mb-5">
+        {globalStatus === "running" && (
+          <div className="w-10 h-10 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
+        )}
+        {globalStatus === "done" && (
+          <div className="w-10 h-10 bg-emerald-500/15 border border-emerald-500/20 rounded-full flex items-center justify-center">
+            <svg className="w-5 h-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+            </svg>
           </div>
-          <h2 className="font-semibold text-gray-900 text-center">{meeting.title}</h2>
-          <p className="text-sm text-gray-400 mt-0.5">Researching attendees…</p>
-        </div>
+        )}
+        {globalStatus === "error" && (
+          <div className="w-10 h-10 bg-red-500/15 border border-red-500/20 rounded-full flex items-center justify-center">
+            <svg className="w-5 h-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
+            </svg>
+          </div>
+        )}
+      </div>
 
-        {/* Steps */}
-        <div className="space-y-2">
-          {steps.map((step, i) => (
-            <div
-              key={i}
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
-                step.status === "running"
-                  ? "bg-blue-50 border border-blue-100"
-                  : step.status === "error"
-                  ? "bg-red-50 border border-red-100"
-                  : "bg-white border border-gray-100"
-              }`}
-            >
-              <div className="flex-shrink-0 w-5 h-5 flex items-center justify-center">
-                {step.status === "running" && (
-                  <div className="w-4 h-4 rounded-full border-2 border-blue-400 border-t-transparent animate-spin" />
-                )}
-                {step.status === "done" && (
-                  <svg className="w-5 h-5 text-green-500" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm3.857-9.809a.75.75 0 0 0-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 1 0-1.06 1.061l2.5 2.5a.75.75 0 0 0 1.137-.089l4-5.5Z" clipRule="evenodd" />
-                  </svg>
-                )}
-                {step.status === "error" && (
-                  <svg className="w-5 h-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-8-5a.75.75 0 0 1 .75.75v4.5a.75.75 0 0 1-1.5 0v-4.5A.75.75 0 0 1 10 5Zm0 10a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clipRule="evenodd" />
-                  </svg>
-                )}
-              </div>
-              <p className={`text-sm ${
-                step.status === "running" ? "text-blue-700 font-medium" :
-                step.status === "error" ? "text-red-600" : "text-gray-600"
-              }`}>
-                {step.text}
-              </p>
+      <h2 className="text-sm font-semibold text-zinc-300 mb-1 text-center">
+        {globalStatus === "running" ? "Researching meeting…" : globalStatus === "done" ? "Research complete" : "Research failed"}
+      </h2>
+      <p className="text-xs text-zinc-600 mb-8 text-center max-w-xs">{globalStatus === "running" ? statusMsg : meeting.title}</p>
+
+      {/* Steps */}
+      <div className="w-full max-w-sm space-y-2">
+        {steps.map((step) => (
+          <div key={step.id} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl border transition-all ${
+            step.status === "running" ? "bg-blue-500/8 border-blue-500/20" :
+            step.status === "done"    ? "bg-zinc-900/50 border-white/4" :
+                                        "bg-red-500/8 border-red-500/20"
+          }`}>
+            <div className="flex-shrink-0">
+              {step.status === "running" && (
+                <div className="w-3 h-3 border-[1.5px] border-blue-400/40 border-t-blue-400 rounded-full animate-spin" />
+              )}
+              {step.status === "done" && (
+                <svg className="w-3 h-3 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                </svg>
+              )}
+              {step.status === "error" && (
+                <svg className="w-3 h-3 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+                </svg>
+              )}
             </div>
-          ))}
-        </div>
-        <div ref={bottomRef} />
+            <p className={`text-xs font-medium ${
+              step.status === "running" ? "text-zinc-300" :
+              step.status === "done"    ? "text-zinc-500" :
+                                          "text-red-400"
+            }`}>{step.label}</p>
+          </div>
+        ))}
       </div>
     </div>
   );

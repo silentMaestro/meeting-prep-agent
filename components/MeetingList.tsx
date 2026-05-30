@@ -10,22 +10,12 @@ interface Props {
 }
 
 function groupMeetings(meetings: Meeting[]) {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const dayAfter = new Date(tomorrow);
-  dayAfter.setDate(dayAfter.getDate() + 1);
-
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1);
+  const dayAfter = new Date(tomorrow); dayAfter.setDate(dayAfter.getDate() + 1);
   return {
-    Today: meetings.filter((m) => {
-      const d = new Date(m.start);
-      return d >= today && d < tomorrow;
-    }),
-    Tomorrow: meetings.filter((m) => {
-      const d = new Date(m.start);
-      return d >= tomorrow && d < dayAfter;
-    }),
+    Today: meetings.filter((m) => { const d = new Date(m.start); return d >= today && d < tomorrow; }),
+    Tomorrow: meetings.filter((m) => { const d = new Date(m.start); return d >= tomorrow && d < dayAfter; }),
   };
 }
 
@@ -35,22 +25,21 @@ function formatTime(iso: string) {
 
 function timeUntil(iso: string) {
   const diff = new Date(iso).getTime() - Date.now();
-  if (diff < 0) return "Now";
+  if (diff < 0) return null;
   const mins = Math.floor(diff / 60000);
-  if (mins < 60) return `in ${mins}m`;
-  const hrs = Math.floor(mins / 60);
-  return `in ${hrs}h`;
+  if (mins < 60) return `${mins}m`;
+  return `${Math.floor(mins / 60)}h`;
 }
 
 function MeetingSkeleton() {
   return (
-    <div className="px-4 py-3 space-y-2">
+    <div className="px-3 py-2 space-y-1">
       {[1, 2, 3].map((i) => (
-        <div key={i} className="flex gap-3 items-start animate-pulse">
-          <div className="w-10 h-10 rounded-xl bg-gray-100 flex-shrink-0" />
-          <div className="flex-1 space-y-1.5 pt-0.5">
-            <div className="h-3.5 bg-gray-100 rounded w-3/4" />
-            <div className="h-3 bg-gray-100 rounded w-1/2" />
+        <div key={i} className="flex gap-3 items-center p-3 rounded-xl animate-pulse">
+          <div className="w-8 h-8 rounded-lg bg-zinc-800 flex-shrink-0" />
+          <div className="flex-1 space-y-1.5">
+            <div className="h-3 bg-zinc-800 rounded w-3/4" />
+            <div className="h-2.5 bg-zinc-800/60 rounded w-1/2" />
           </div>
         </div>
       ))}
@@ -72,10 +61,7 @@ export default function MeetingList({ selectedId, onSelect }: Props) {
         setNoCalendars(!!data.noCalendars);
         setLoading(false);
       })
-      .catch((e) => {
-        setError(e.message);
-        setLoading(false);
-      });
+      .catch((e) => { setError(e.message); setLoading(false); });
   }, []);
 
   if (loading) return <MeetingSkeleton />;
@@ -83,8 +69,8 @@ export default function MeetingList({ selectedId, onSelect }: Props) {
   if (error) {
     return (
       <div className="px-4 py-6 text-center">
-        <p className="text-sm text-red-500">Could not load calendar</p>
-        <p className="text-xs text-gray-400 mt-1">{error}</p>
+        <p className="text-sm text-red-400">Could not load calendar</p>
+        <p className="text-xs text-zinc-600 mt-1">{error}</p>
       </div>
     );
   }
@@ -92,18 +78,18 @@ export default function MeetingList({ selectedId, onSelect }: Props) {
   if (noCalendars) {
     return (
       <div className="px-4 py-8 flex flex-col items-center text-center gap-3">
-        <div className="w-12 h-12 bg-gray-100 rounded-2xl flex items-center justify-center">
-          <svg className="w-6 h-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <div className="w-10 h-10 bg-zinc-900 border border-white/6 rounded-xl flex items-center justify-center">
+          <svg className="w-5 h-5 text-zinc-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
           </svg>
         </div>
         <div>
-          <p className="text-sm font-medium text-gray-700">No calendar connected</p>
-          <p className="text-xs text-gray-400 mt-0.5">Connect your Google Calendar to see meetings here.</p>
+          <p className="text-sm font-medium text-zinc-400">No calendar connected</p>
+          <p className="text-xs text-zinc-600 mt-0.5 leading-relaxed">Connect your Google Calendar to see meetings.</p>
         </div>
         <Link
           href="/settings"
-          className="mt-1 text-xs font-semibold text-blue-600 bg-blue-50 px-4 py-2 rounded-xl hover:bg-blue-100 transition-colors"
+          className="text-xs font-medium text-blue-400 hover:text-blue-300 bg-blue-500/10 hover:bg-blue-500/15 border border-blue-500/20 px-3 py-1.5 rounded-lg transition-all"
         >
           Connect Calendar →
         </Link>
@@ -112,98 +98,60 @@ export default function MeetingList({ selectedId, onSelect }: Props) {
   }
 
   const groups = groupMeetings(meetings);
-  const hasAny = groups.Today.length > 0 || groups.Tomorrow.length > 0;
+  const allEmpty = Object.values(groups).every((g) => g.length === 0);
 
-  if (!hasAny) {
+  if (allEmpty) {
     return (
-      <div className="px-4 py-10 text-center">
-        <p className="text-sm font-medium text-gray-500">No meetings coming up</p>
-        <p className="text-xs text-gray-400 mt-1">Meetings with external attendees will appear here</p>
+      <div className="px-4 py-8 text-center">
+        <p className="text-sm text-zinc-500">Nothing scheduled today or tomorrow</p>
       </div>
     );
   }
 
   return (
-    <div className="pb-4">
-      {(["Today", "Tomorrow"] as const).map((label) =>
-        groups[label].length > 0 ? (
+    <div className="px-2 py-2 space-y-4">
+      {(Object.entries(groups) as [string, Meeting[]][]).map(([label, items]) =>
+        items.length === 0 ? null : (
           <div key={label}>
-            <p className="px-4 pt-3 pb-1 text-xs font-semibold text-gray-400 uppercase tracking-wider">
-              {label}
-            </p>
-            <div className="space-y-0.5 px-2">
-              {groups[label].map((m) => {
-                const isSelected = selectedId === m.id;
-                const isNow = new Date(m.start) <= new Date() && new Date(m.end) >= new Date();
+            <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest px-3 mb-1">{label}</p>
+            <div className="space-y-0.5">
+              {items.map((m) => {
+                const until = timeUntil(m.start);
+                const isSelected = m.id === selectedId;
                 return (
                   <button
                     key={m.id}
                     onClick={() => onSelect(m)}
-                    className={`w-full text-left flex items-start gap-3 px-3 py-3 rounded-xl transition-all ${
+                    className={`w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all group ${
                       isSelected
-                        ? "bg-blue-50 ring-1 ring-blue-100"
-                        : "hover:bg-gray-50 active:bg-gray-100"
+                        ? "bg-blue-600/15 border border-blue-500/20"
+                        : "hover:bg-white/4 border border-transparent"
                     }`}
                   >
                     {/* Time block */}
-                    <div className={`flex-shrink-0 w-10 h-10 rounded-xl flex flex-col items-center justify-center text-center ${
-                      isNow ? "bg-blue-600 text-white" : isSelected ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-500"
-                    }`}>
-                      <span className="text-[10px] font-semibold leading-none">
-                        {new Date(m.start).toLocaleTimeString([], { hour: "numeric" }).replace(" ", "")}
-                      </span>
-                      <span className="text-[9px] leading-none mt-0.5 opacity-70">
-                        {new Date(m.start).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }).slice(-2)}
-                      </span>
+                    <div className={`w-9 flex-shrink-0 text-right ${isSelected ? "text-blue-400" : "text-zinc-600"}`}>
+                      <p className="text-[11px] font-semibold leading-tight">{formatTime(m.start).split(" ")[0]}</p>
+                      <p className="text-[9px] leading-tight">{formatTime(m.start).split(" ")[1]}</p>
                     </div>
-
-                    <div className="flex-1 min-w-0 pt-0.5">
-                      <p className={`text-sm font-medium truncate leading-snug ${isSelected ? "text-blue-900" : "text-gray-900"}`}>
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm font-medium truncate leading-snug ${isSelected ? "text-zinc-100" : "text-zinc-300 group-hover:text-zinc-100"}`}>
                         {m.title}
                       </p>
-                      <div className="flex items-center gap-1.5 mt-0.5">
-                        <span className="text-xs text-gray-400">
-                          {m.attendees.length} {m.attendees.length === 1 ? "person" : "people"}
-                        </span>
-                        {label === "Today" && (
-                          <>
-                            <span className="text-gray-200">·</span>
-                            <span className={`text-xs font-medium ${isNow ? "text-blue-600" : "text-gray-400"}`}>
-                              {timeUntil(m.start)}
-                            </span>
-                          </>
-                        )}
-                      </div>
-                      {/* Attendee avatars */}
-                      <div className="flex gap-1 mt-1.5">
-                        {m.attendees.slice(0, 4).map((a) => (
-                          <div
-                            key={a.email}
-                            className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-[9px] font-bold"
-                            title={a.displayName ?? a.email}
-                          >
-                            {(a.displayName ?? a.email)[0].toUpperCase()}
-                          </div>
-                        ))}
-                        {m.attendees.length > 4 && (
-                          <div className="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 text-[9px] font-medium">
-                            +{m.attendees.length - 4}
-                          </div>
-                        )}
-                      </div>
+                      <p className="text-xs text-zinc-600 truncate mt-0.5">
+                        {m.attendees.length} {m.attendees.length === 1 ? "person" : "people"}
+                      </p>
                     </div>
-
-                    {isSelected && (
-                      <svg className="w-4 h-4 text-blue-400 flex-shrink-0 mt-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
-                      </svg>
+                    {until && (
+                      <span className="text-[10px] font-medium text-emerald-500 bg-emerald-500/10 px-1.5 py-0.5 rounded-md flex-shrink-0">
+                        {until}
+                      </span>
                     )}
                   </button>
                 );
               })}
             </div>
           </div>
-        ) : null
+        )
       )}
     </div>
   );

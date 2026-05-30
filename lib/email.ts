@@ -29,7 +29,7 @@ export async function sendVerificationEmail(email: string, name?: string) {
   }
 
   await resend.emails.send({
-    from: "Pocket PA <noreply@pocketpa.app>",
+    from: process.env.EMAIL_FROM ?? "Pocket PA <onboarding@resend.dev>",
     to: email,
     subject: "Confirm your Pocket PA account",
     html: `

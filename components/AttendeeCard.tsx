@@ -3,7 +3,7 @@ import { AttendeeResearch } from "@/types";
 function Avatar({ name }: { name: string }) {
   const initials = name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase();
   return (
-    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-semibold text-sm flex-shrink-0 shadow-sm">
+    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-semibold text-sm flex-shrink-0 shadow-lg shadow-blue-900/30">
       {initials}
     </div>
   );
@@ -14,15 +14,11 @@ function LinkPill({ label, url }: { label: string; url: string }) {
   const isGitHub = label.toLowerCase().includes("github");
   return (
     <a
-      href={url}
-      target="_blank"
-      rel="noopener noreferrer"
-      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
-        isLinkedIn
-          ? "bg-[#0A66C2]/10 text-[#0A66C2] hover:bg-[#0A66C2]/20"
-          : isGitHub
-          ? "bg-gray-900/10 text-gray-700 hover:bg-gray-900/20"
-          : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+      href={url} target="_blank" rel="noopener noreferrer"
+      className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-medium transition-colors ${
+        isLinkedIn ? "bg-[#0A66C2]/15 text-[#5BA4F5] hover:bg-[#0A66C2]/25" :
+        isGitHub   ? "bg-zinc-800 text-zinc-300 hover:bg-zinc-700" :
+                     "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"
       }`}
     >
       {isLinkedIn && (
@@ -49,60 +45,54 @@ export default function AttendeeCard({ attendee }: { attendee: AttendeeResearch 
   const validLinks = (attendee.links ?? []).filter((l) => l.url?.startsWith("http"));
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
-      {/* Header */}
+    <div className="bg-[#141414] border border-white/8 rounded-2xl overflow-hidden">
       <div className="px-4 pt-4 pb-3 flex items-start gap-3">
         <Avatar name={attendee.name} />
         <div className="flex-1 min-w-0 pt-0.5">
-          <h3 className="font-semibold text-gray-900 leading-snug">{attendee.name}</h3>
+          <h3 className="font-semibold text-zinc-100 text-sm leading-snug">{attendee.name}</h3>
           {attendee.role !== "Unknown" && (
-            <p className="text-sm text-gray-500 mt-0.5 leading-snug">{attendee.role}</p>
+            <p className="text-xs text-zinc-400 mt-0.5">{attendee.role}</p>
           )}
-          <p className="text-xs text-gray-400 mt-0.5">{attendee.email}</p>
+          <p className="text-xs text-zinc-600 mt-0.5">{attendee.email}</p>
           {validLinks.length > 0 && (
             <div className="flex flex-wrap gap-1.5 mt-2">
-              {validLinks.map((link, i) => (
-                <LinkPill key={i} label={link.label} url={link.url} />
-              ))}
+              {validLinks.map((link, i) => <LinkPill key={i} label={link.label} url={link.url} />)}
             </div>
           )}
         </div>
       </div>
 
-      {/* Bio */}
       {attendee.bio && attendee.bio !== "No public profile found" && attendee.bio !== "Research unavailable." && (
         <div className="px-4 pb-3">
-          <p className="text-sm text-gray-600 leading-relaxed">{attendee.bio}</p>
+          <p className="text-sm text-zinc-400 leading-relaxed">{attendee.bio}</p>
         </div>
       )}
 
-      {/* Sections */}
       {(attendee.recentActivity.length > 0 || attendee.talkingPoints.length > 0) && (
-        <div className="border-t border-gray-50">
+        <div className="border-t border-white/6">
           {attendee.recentActivity.length > 0 && (
             <div className="px-4 py-3">
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Recent Activity</p>
+              <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest mb-2">Recent Activity</p>
               <ul className="space-y-1.5">
                 {attendee.recentActivity.map((item, i) => (
-                  <li key={i} className="text-sm text-gray-600 flex gap-2 leading-snug">
-                    <span className="text-gray-300 flex-shrink-0 mt-0.5">•</span>
+                  <li key={i} className="text-sm text-zinc-400 flex gap-2 leading-snug">
+                    <span className="text-zinc-700 flex-shrink-0 mt-0.5">·</span>
                     {item}
                   </li>
                 ))}
               </ul>
             </div>
           )}
-
           {attendee.talkingPoints.length > 0 && (
-            <div className={`px-4 py-3 ${attendee.recentActivity.length > 0 ? "border-t border-gray-50" : ""}`}>
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Talking Points</p>
-              <ul className="space-y-1.5">
+            <div className={`px-4 py-3 ${attendee.recentActivity.length > 0 ? "border-t border-white/6" : ""}`}>
+              <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest mb-2">Talking Points</p>
+              <ul className="space-y-2">
                 {attendee.talkingPoints.map((point, i) => (
-                  <li key={i} className="flex gap-2 items-start">
-                    <span className="flex-shrink-0 w-5 h-5 rounded-full bg-blue-100 text-blue-600 text-xs font-semibold flex items-center justify-center mt-0.5">
+                  <li key={i} className="flex gap-2.5 items-start">
+                    <span className="flex-shrink-0 w-4 h-4 rounded-md bg-blue-500/15 text-blue-400 text-[10px] font-bold flex items-center justify-center mt-0.5">
                       {i + 1}
                     </span>
-                    <span className="text-sm text-gray-700 leading-snug">{point}</span>
+                    <span className="text-sm text-zinc-300 leading-snug">{point}</span>
                   </li>
                 ))}
               </ul>
