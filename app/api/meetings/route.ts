@@ -82,6 +82,25 @@ async function refreshFromGoogle(userId: string, connections: Awaited<ReturnType
   }
 
   await persistMeetings(userId, allMeetings);
+
+  // Remove DB records for events that no longer exist in Google Calendar.
+  // Only prune the window we actually fetched (today + tomorrow) to avoid
+  // accidentally deleting future/past events we didn't ask GCal about.
+  const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0);
+  const endOfTomorrow = new Date(startOfToday);
+  endOfTomorrow.setDate(endOfTomorrow.getDate() + 2);
+  endOfTomorrow.setMilliseconds(-1);
+
+  const liveIds = new Set(allMeetings.map(m => m.id));
+  await db.meeting.deleteMany({
+    where: {
+      userId,
+      startAt: { gte: startOfToday, lte: endOfTomorrow },
+      gcalEventId: { notIn: [...liveIds] },
+      // Never delete manually-added activity blocks (they have an activityType)
+      activityType: null,
+    },
+  });
 }
 
 async function persistMeetings(userId: string, meetings: any[]) {
