@@ -23,7 +23,7 @@ export async function GET() {
       "openid",
       "email",
       "profile",
-      "https://www.googleapis.com/auth/calendar",
+      "https://www.googleapis.com/auth/calendar.events",
     ].join(" "),
     access_type: "offline",
     prompt: "consent",           // force consent so we always get a refresh_token
