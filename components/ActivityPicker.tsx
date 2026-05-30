@@ -46,6 +46,13 @@ function timeOptions(slotStart: string, slotEnd: string) {
   return options;
 }
 
+function timeLabel(t: string) {
+  const [h, m] = t.split(":").map(Number);
+  const ampm = h < 12 ? "am" : "pm";
+  const hour = h % 12 || 12;
+  return m === 0 ? `${hour}${ampm}` : `${hour}:${m.toString().padStart(2, "0")}${ampm}`;
+}
+
 export default function ActivityPicker({ slot, onConfirm, onClose }: Props) {
   const [step, setStep] = useState<"time" | "activity" | "details">("time");
   const [customStart, setCustomStart] = useState(toTimeStr(slot.start));
@@ -123,7 +130,7 @@ export default function ActivityPicker({ slot, onConfirm, onClose }: Props) {
               <p className="text-xs text-zinc-500">
                 {step === "time"
                   ? `${formatTime(slot.start)} – ${formatTime(slot.end)} · ${slotDuration(slot.start, slot.end)} available`
-                  : `${customStart.replace(/^0/, "")} – ${customEnd.replace(/^0/, "")} · ${duration}`}
+                  : `${timeLabel(customStart)} – ${timeLabel(customEnd)} · ${duration}`}
               </p>
             </div>
           </div>
@@ -146,7 +153,7 @@ export default function ActivityPicker({ slot, onConfirm, onClose }: Props) {
                   className="w-full bg-zinc-900 border border-white/8 rounded-xl px-3 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-violet-500/50 appearance-none"
                 >
                   {startOptions.slice(0, -1).map(t => (
-                    <option key={t} value={t}>{t.replace(/^0/, "")}</option>
+                    <option key={t} value={t}>{timeLabel(t)}</option>
                   ))}
                 </select>
               </div>
@@ -159,7 +166,7 @@ export default function ActivityPicker({ slot, onConfirm, onClose }: Props) {
                   className="w-full bg-zinc-900 border border-white/8 rounded-xl px-3 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-violet-500/50 appearance-none"
                 >
                   {endOptions.map(t => (
-                    <option key={t} value={t}>{t.replace(/^0/, "")}</option>
+                    <option key={t} value={t}>{timeLabel(t)}</option>
                   ))}
                 </select>
               </div>
