@@ -95,7 +95,10 @@ Only return the JSON array, no other text.`;
 
       const raw = msg.content[0].type === "text" ? msg.content[0].text.trim() : "[]";
       const parsed = JSON.parse(raw.replace(/^```json\n?/, "").replace(/\n?```$/, ""));
-      suggestedBlocks = Array.isArray(parsed) ? parsed : [];
+      suggestedBlocks = (Array.isArray(parsed) ? parsed : [])
+        .sort((a: { start: string }, b: { start: string }) =>
+          new Date(a.start).getTime() - new Date(b.start).getTime()
+        );
     } catch { suggestedBlocks = []; }
   }
 

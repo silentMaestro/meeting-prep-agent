@@ -46,9 +46,10 @@ export default function SnapshotView({ meetings, loading, noCalendars, onSelectM
   const greeting = now.getHours() < 12 ? "Good morning" : now.getHours() < 17 ? "Good afternoon" : "Good evening";
   const dateStr = now.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
 
-  const groups = groupByDay(meetings);
+  const sorted = [...meetings].sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
+  const groups = groupByDay(sorted);
   const todayMeetings = groups.Today;
-  const nextMeeting = todayMeetings.find(m => new Date(m.start) > now);
+  const nextMeeting = todayMeetings.find(m => new Date(m.start) >= now);
 
   return (
     <div className="flex-1 overflow-y-auto">
