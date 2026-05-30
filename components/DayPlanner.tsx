@@ -250,7 +250,12 @@ export default function DayPlanner({ meetings, onSelectMeeting }: Props) {
     try {
       const res = await fetch("/api/plan");
       const d = await res.json();
-      if (d.plan) setPlan(d.plan);
+      if (d.plan) {
+        setPlan(d.plan);
+        // Drop addedBlocks that are now present in the refreshed plan
+        const freshIds = new Set(d.plan.blocks.map((b: TimeBlock) => b.gcalEventId ?? b.id));
+        setAddedBlocks(prev => prev.filter(b => !freshIds.has(b.gcalEventId ?? b.id)));
+      }
     } catch {}
     setLoading(false);
   }, []);
@@ -266,9 +271,15 @@ export default function DayPlanner({ meetings, onSelectMeeting }: Props) {
       .finally(() => setSyncing(false));
   }, [fetchPlan]);
 
-  // Merge: plan.blocks + addedBlocks, minus removedIds
+  // Merge: plan.blocks (minus deleted) + addedBlocks that haven't been
+  // absorbed into plan yet (dedup by gcalEventId to avoid double-counting
+  // after the background sync re-fetches and the block appears in both)
+  const planBlockIds = new Set(plan?.blocks.map(b => b.gcalEventId ?? b.id) ?? []);
   const allBlocks = plan
-    ? [...plan.blocks.filter(b => !removedIds.has(b.id)), ...addedBlocks]
+    ? [
+        ...plan.blocks.filter(b => !removedIds.has(b.id) && !removedIds.has(b.gcalEventId ?? "")),
+        ...addedBlocks.filter(b => !planBlockIds.has(b.gcalEventId ?? b.id) && !removedIds.has(b.id)),
+      ]
     : [];
   const freeSlots = plan ? computeFreeSlots(allBlocks, plan.date) : [];
   const totalFreeHours = freeSlots.reduce((acc, s) =>

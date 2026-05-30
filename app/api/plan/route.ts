@@ -63,8 +63,10 @@ export async function GET(req: Request) {
     description: m.description ?? undefined,
   }));
 
-  // If DB is empty (first load before any meetings fetch), fall back gracefully
-  const freeSlots = computeFreeSlots(allEvents, dayStart, dayEnd);
+  // Free slots for AI suggestions span working hours only (7am–10pm)
+  const workStart = new Date(`${dateStr}T07:00:00`);
+  const workEnd   = new Date(`${dateStr}T22:00:00`);
+  const freeSlots = computeFreeSlots(allEvents, workStart, workEnd);
   const freeMinutes = freeSlots.reduce((acc, s) =>
     acc + (new Date(s.end).getTime() - new Date(s.start).getTime()) / 60000, 0);
 
