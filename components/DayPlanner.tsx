@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { TimeBlock, ActivityType, ACTIVITY_CONFIGS, DayPlan } from "@/types";
+import { TimeBlock, ActivityType, ACTIVITY_CONFIGS, DayPlan, Meeting } from "@/types";
 import ActivityPicker from "./ActivityPicker";
 
-const HOUR_HEIGHT = 64; // px per hour
+const HOUR_HEIGHT = 64;
 const DAY_START_HOUR = 7;
 const DAY_END_HOUR = 20;
 const TOTAL_HOURS = DAY_END_HOUR - DAY_START_HOUR;
@@ -65,30 +65,199 @@ function computeFreeSlots(blocks: TimeBlock[], dateStr: string): FreeSlot[] {
   return slots;
 }
 
-export default function DayPlanner() {
+// Overlap layout — returns column index and total columns for each block
+interface LayoutBlock extends TimeBlock {
+  col: number;
+  totalCols: number;
+}
+
+function layoutBlocks(blocks: TimeBlock[]): LayoutBlock[] {
+  const sorted = [...blocks].sort((a, b) =>
+    new Date(a.start).getTime() - new Date(b.start).getTime()
+  );
+
+  const result: LayoutBlock[] = [];
+  // Groups of overlapping blocks
+  const groups: TimeBlock[][] = [];
+
+  for (const block of sorted) {
+    const bStart = new Date(block.start).getTime();
+    const bEnd   = new Date(block.end).getTime();
+    let placed = false;
+    for (const group of groups) {
+      // Check if this block overlaps any block in the group
+      const overlaps = group.some(g => {
+        const gStart = new Date(g.start).getTime();
+        const gEnd   = new Date(g.end).getTime();
+        return bStart < gEnd && bEnd > gStart;
+      });
+      if (overlaps) {
+        group.push(block);
+        placed = true;
+        break;
+      }
+    }
+    if (!placed) groups.push([block]);
+  }
+
+  for (const group of groups) {
+    const totalCols = group.length;
+    group.forEach((block, i) => {
+      result.push({ ...block, col: i, totalCols });
+    });
+  }
+  return result;
+}
+
+interface EventDetailSheetProps {
+  block: TimeBlock;
+  meeting?: Meeting; // full meeting data if available
+  onClose: () => void;
+  onDelete: (block: TimeBlock) => Promise<void>;
+  onBrief?: (meeting: Meeting) => void;
+  isAdded: boolean;
+}
+
+function EventDetailSheet({ block, meeting, onClose, onDelete, onBrief, isAdded }: EventDetailSheetProps) {
+  const cfg = ACTIVITY_CONFIGS[block.type];
+  const [deleting, setDeleting] = useState(false);
+
+  async function handleDelete() {
+    setDeleting(true);
+    await onDelete(block);
+    onClose();
+  }
+
+  const attendees = meeting?.attendees ?? [];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={onClose}>
+      <div
+        className="w-full max-w-sm bg-[#141414] border border-white/10 rounded-3xl overflow-hidden shadow-2xl"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className={`px-5 pt-5 pb-4 border-b border-white/6 ${cfg.color}`}>
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span className="text-2xl">{cfg.emoji}</span>
+              <div>
+                <p className={`text-sm font-bold ${cfg.text}`}>{block.title}</p>
+                <p className="text-xs text-zinc-500 mt-0.5">
+                  {formatTime(block.start)} – {formatTime(block.end)} · {formatDuration(block.start, block.end)}
+                </p>
+              </div>
+            </div>
+            <button onClick={onClose} className="w-6 h-6 flex items-center justify-center rounded-full bg-black/20 hover:bg-black/40 transition-colors flex-shrink-0">
+              <svg className="w-3 h-3 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div className="px-5 py-4 space-y-4">
+          {/* Description */}
+          {block.description && (
+            <p className="text-xs text-zinc-500 leading-relaxed">{block.description}</p>
+          )}
+
+          {/* Attendees */}
+          {attendees.length > 0 && (
+            <div>
+              <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest mb-2">Attendees</p>
+              <div className="space-y-1.5">
+                {attendees.map((a, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0">
+                      {(a.displayName ?? a.email)[0].toUpperCase()}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium text-zinc-300 truncate">{a.displayName ?? a.email}</p>
+                      {a.displayName && <p className="text-[10px] text-zinc-600 truncate">{a.email}</p>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Actions */}
+          <div className="flex gap-2 pt-1">
+            {/* Brief button — only for meetings with attendees */}
+            {block.type === "meeting" && meeting && onBrief && (
+              <button
+                onClick={() => { onBrief(meeting); onClose(); }}
+                className="flex-1 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-xs font-semibold transition-all"
+              >
+                ✨ Generate brief
+              </button>
+            )}
+
+            {/* Delete — only for blocks that were added or are deletable calendar events */}
+            {(isAdded || block.gcalEventId) && (
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                className={`py-2.5 rounded-xl text-xs font-semibold transition-all border border-red-500/20 text-red-400 hover:bg-red-500/10 disabled:opacity-50 ${block.type === "meeting" && meeting && onBrief ? "px-4" : "flex-1"}`}
+              >
+                {deleting ? "Deleting…" : "Delete"}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface Props {
+  meetings: Meeting[];
+  onSelectMeeting: (meeting: Meeting) => void;
+}
+
+export default function DayPlanner({ meetings, onSelectMeeting }: Props) {
   const [plan, setPlan] = useState<DayPlan | null>(null);
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [addedBlocks, setAddedBlocks] = useState<TimeBlock[]>([]);
+  const [removedIds, setRemovedIds] = useState<Set<string>>(new Set());
   const [pickerSlot, setPickerSlot] = useState<FreeSlot | null>(null);
   const [pickerPreset, setPickerPreset] = useState<Omit<TimeBlock, "id" | "gcalEventId"> | null>(null);
   const [activeTab, setActiveTab] = useState<"timeline" | "suggest">("timeline");
   const [now, setNow] = useState<number | null>(nowOffset());
+  const [selectedBlock, setSelectedBlock] = useState<TimeBlock | null>(null);
 
-  // Update now-line every minute
   useEffect(() => {
     const t = setInterval(() => setNow(nowOffset()), 60000);
     return () => clearInterval(t);
   }, []);
 
-  useEffect(() => {
-    fetch("/api/plan")
-      .then(r => r.json())
-      .then(d => { setPlan(d.plan); setLoading(false); })
-      .catch(() => setLoading(false));
+  const fetchPlan = useCallback(async () => {
+    try {
+      const res = await fetch("/api/plan");
+      const d = await res.json();
+      if (d.plan) setPlan(d.plan);
+    } catch {}
+    setLoading(false);
   }, []);
 
-  const allBlocks = plan ? [...plan.blocks, ...addedBlocks] : [];
+  useEffect(() => {
+    fetchPlan();
+
+    // Trigger background Google Calendar refresh, then re-fetch plan
+    setSyncing(true);
+    fetch("/api/meetings")
+      .then(() => new Promise(r => setTimeout(r, 2500)))
+      .then(() => fetchPlan())
+      .finally(() => setSyncing(false));
+  }, [fetchPlan]);
+
+  // Merge: plan.blocks + addedBlocks, minus removedIds
+  const allBlocks = plan
+    ? [...plan.blocks.filter(b => !removedIds.has(b.id)), ...addedBlocks]
+    : [];
   const freeSlots = plan ? computeFreeSlots(allBlocks, plan.date) : [];
   const totalFreeHours = freeSlots.reduce((acc, s) =>
     acc + (new Date(s.end).getTime() - new Date(s.start).getTime()) / 3600000, 0);
@@ -96,6 +265,7 @@ export default function DayPlanner() {
   async function handleAddBlock(block: Omit<TimeBlock, "id" | "gcalEventId"> & { attendees?: string; location?: string }) {
     setSaving(true);
     setPickerSlot(null);
+    setPickerPreset(null);
     try {
       const res = await fetch("/api/plan/events", {
         method: "POST",
@@ -122,20 +292,16 @@ export default function DayPlanner() {
   }
 
   async function handleRemoveBlock(block: TimeBlock) {
-    if (!block.gcalEventId) {
-      setAddedBlocks(prev => prev.filter(b => b.id !== block.id));
-      return;
+    if (block.gcalEventId) {
+      setSaving(true);
+      try {
+        await fetch(`/api/plan/events?eventId=${block.gcalEventId}`, { method: "DELETE" });
+      } catch (e) { console.error(e); }
+      finally { setSaving(false); }
     }
-    setSaving(true);
-    try {
-      await fetch(`/api/plan/events?eventId=${block.gcalEventId}`, { method: "DELETE" });
-      setAddedBlocks(prev => prev.filter(b => b.id !== block.id));
-    } catch (e) { console.error(e); }
-    finally { setSaving(false); }
-  }
-
-  async function handleAcceptSuggestion(suggested: Omit<TimeBlock, "id" | "gcalEventId">) {
-    await handleAddBlock(suggested);
+    // Remove from local state
+    setAddedBlocks(prev => prev.filter(b => b.id !== block.id));
+    setRemovedIds(prev => new Set([...prev, block.id]));
   }
 
   if (loading) {
@@ -158,6 +324,14 @@ export default function DayPlanner() {
     weekday: "long", month: "long", day: "numeric",
   });
 
+  const nonFreeBlocks = allBlocks.filter(b => !b.isFree);
+  const laidOut = layoutBlocks(nonFreeBlocks);
+
+  // Find the full Meeting object for a given block
+  function meetingForBlock(block: TimeBlock): Meeting | undefined {
+    return meetings.find(m => m.id === block.gcalEventId || m.id === block.id);
+  }
+
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
@@ -168,23 +342,25 @@ export default function DayPlanner() {
             <p className="text-xs text-zinc-600">{dateLabel}</p>
           </div>
           <div className="flex items-center gap-2">
-            {saving && <div className="w-3.5 h-3.5 border-[1.5px] border-violet-400/40 border-t-violet-400 rounded-full animate-spin" />}
+            {(saving || syncing) && (
+              <div className="flex items-center gap-1.5">
+                <div className="w-3.5 h-3.5 border-[1.5px] border-violet-400/40 border-t-violet-400 rounded-full animate-spin" />
+                {syncing && <span className="text-[10px] text-zinc-600">Syncing…</span>}
+              </div>
+            )}
             <span className="text-xs text-zinc-600 bg-zinc-900 border border-white/6 px-2 py-1 rounded-lg">
               {totalFreeHours.toFixed(1)}h free
             </span>
           </div>
         </div>
 
-        {/* Tabs */}
         <div className="flex gap-1 bg-zinc-900 rounded-xl p-1">
           {(["timeline", "suggest"] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
               className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                activeTab === tab
-                  ? "bg-zinc-700 text-zinc-100"
-                  : "text-zinc-500 hover:text-zinc-300"
+                activeTab === tab ? "bg-zinc-700 text-zinc-100" : "text-zinc-500 hover:text-zinc-300"
               }`}
             >
               {tab === "timeline" ? "📅 Timeline" : "✨ Suggestions"}
@@ -219,45 +395,38 @@ export default function DayPlanner() {
               </div>
             )}
 
-            {/* Event blocks */}
+            {/* Event blocks with overlap layout */}
             <div className="absolute inset-0 ml-12">
-              {/* Existing calendar events */}
-              {allBlocks.filter(b => !b.isFree).map((block) => {
+              {laidOut.map((block) => {
                 const cfg = ACTIVITY_CONFIGS[block.type];
                 const top = timeToOffset(block.start);
                 const height = blockHeight(block.start, block.end);
                 const isAdded = addedBlocks.some(b => b.id === block.id);
 
+                // Overlap positioning
+                const colWidth = 100 / block.totalCols;
+                const left = `${block.col * colWidth}%`;
+                const width = `calc(${colWidth}% - ${block.totalCols > 1 ? "4px" : "8px"})`;
+
                 return (
-                  <div
+                  <button
                     key={block.id}
-                    className={`absolute left-0 right-2 rounded-xl border px-3 py-2 overflow-hidden group transition-all ${cfg.color} ${cfg.border}`}
-                    style={{ top, height: height - 2 }}
+                    onClick={() => setSelectedBlock(block)}
+                    className={`absolute rounded-xl border px-2 py-1.5 overflow-hidden group transition-all hover:brightness-110 text-left ${cfg.color} ${cfg.border} ${block.totalCols > 1 ? "right-0" : "right-2"}`}
+                    style={{ top, height: height - 2, left, width }}
                   >
-                    <div className="flex items-start justify-between gap-1 h-full">
+                    <div className="flex items-start gap-1 h-full">
+                      <span className="text-sm leading-none flex-shrink-0">{cfg.emoji}</span>
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-sm leading-none">{cfg.emoji}</span>
-                          <p className={`text-xs font-semibold truncate leading-snug ${cfg.text}`}>{block.title}</p>
-                        </div>
+                        <p className={`text-[11px] font-semibold truncate leading-snug ${cfg.text}`}>{block.title}</p>
                         {height > 40 && (
                           <p className="text-[10px] text-zinc-600 mt-0.5">
                             {formatTime(block.start)} · {formatDuration(block.start, block.end)}
                           </p>
                         )}
                       </div>
-                      {isAdded && (
-                        <button
-                          onClick={() => handleRemoveBlock(block)}
-                          className="opacity-0 group-hover:opacity-100 transition-opacity w-5 h-5 rounded-full bg-black/30 flex items-center justify-center flex-shrink-0"
-                        >
-                          <svg className="w-2.5 h-2.5 text-zinc-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
-                          </svg>
-                        </button>
-                      )}
                     </div>
-                  </div>
+                  </button>
                 );
               })}
 
@@ -341,7 +510,7 @@ export default function DayPlanner() {
                 <button
                   onClick={() => plan.suggestedBlocks
                     .filter(b => !addedBlocks.some(a => a.start === b.start))
-                    .forEach(b => handleAcceptSuggestion(b))
+                    .forEach(b => handleAddBlock(b))
                   }
                   className="w-full py-3 rounded-2xl border border-violet-500/20 bg-violet-500/8 text-sm font-semibold text-violet-400 hover:bg-violet-500/15 transition-all mt-2"
                 >
@@ -360,6 +529,18 @@ export default function DayPlanner() {
           preset={pickerPreset}
           onConfirm={handleAddBlock}
           onClose={() => { setPickerSlot(null); setPickerPreset(null); }}
+        />
+      )}
+
+      {/* Event detail sheet */}
+      {selectedBlock && (
+        <EventDetailSheet
+          block={selectedBlock}
+          meeting={meetingForBlock(selectedBlock)}
+          isAdded={addedBlocks.some(b => b.id === selectedBlock.id)}
+          onClose={() => setSelectedBlock(null)}
+          onDelete={handleRemoveBlock}
+          onBrief={onSelectMeeting}
         />
       )}
     </div>

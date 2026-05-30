@@ -192,7 +192,7 @@ export default function Home() {
 
             {tab === "plan" && (
               <div className="flex-1 overflow-hidden flex flex-col">
-                <DayPlanner />
+                <DayPlanner meetings={meetings} onSelectMeeting={handleSelectMeeting} />
               </div>
             )}
 
