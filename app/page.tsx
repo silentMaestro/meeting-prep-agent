@@ -2,28 +2,30 @@
 
 import { useSession } from "next-auth/react";
 import { useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import MeetingList from "@/components/MeetingList";
 import AgentProgress from "@/components/AgentProgress";
 import BriefPanel from "@/components/BriefPanel";
-import DigestPanel from "@/components/DigestPanel";
 import DayPlanner from "@/components/DayPlanner";
-import SignInButton from "@/components/SignInButton";
+import SnapshotView from "@/components/SnapshotView";
+import ContactList from "@/components/ContactList";
+import BottomNav from "@/components/BottomNav";
+import ConnectedCalendars from "@/components/ConnectedCalendars";
+import { signOut } from "next-auth/react";
 import { Meeting, MeetingBrief } from "@/types";
+
+type Tab = "snapshot" | "plan" | "contacts" | "settings";
 
 export default function Home() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const [tab, setTab] = useState<Tab>("snapshot");
   const [selectedMeeting, setSelectedMeeting] = useState<Meeting | null>(null);
   const [brief, setBrief] = useState<MeetingBrief | null>(null);
   const [briefs, setBriefs] = useState<Record<string, MeetingBrief>>({});
   const [researching, setResearching] = useState(false);
-  const [mobileView, setMobileView] = useState<"meetings" | "brief" | "digest" | "plan">("meetings");
 
   function handleSelectMeeting(meeting: Meeting) {
     setSelectedMeeting(meeting);
-    setMobileView("brief");
     if (briefs[meeting.id]) {
       setBrief(briefs[meeting.id]);
       setResearching(false);
@@ -34,18 +36,21 @@ export default function Home() {
   }
 
   function handleBriefReady(b: MeetingBrief) {
-    setBriefs((prev) => ({ ...prev, [b.meetingId]: b }));
+    setBriefs(prev => ({ ...prev, [b.meetingId]: b }));
     setBrief(b);
+    setResearching(false);
+  }
+
+  function handleBack() {
+    setSelectedMeeting(null);
+    setBrief(null);
     setResearching(false);
   }
 
   if (status === "loading") {
     return (
-      <div className="flex items-center justify-center h-full min-h-screen">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-6 h-6 border-2 border-violet-500/30 border-t-violet-500 rounded-full animate-spin" />
-          <p className="text-sm text-zinc-500">Loading…</p>
-        </div>
+      <div className="flex items-center justify-center h-screen">
+        <div className="w-6 h-6 border-2 border-violet-500/30 border-t-violet-500 rounded-full animate-spin" />
       </div>
     );
   }
@@ -55,16 +60,18 @@ export default function Home() {
     return null;
   }
 
+  const showBriefView = selectedMeeting && (researching || brief);
+
   return (
     <div className="flex flex-col h-screen max-h-screen overflow-hidden bg-[#0a0a0a]">
+
       {/* Header */}
-      <header className="flex items-center justify-between px-4 md:px-5 py-4 bg-[#0f0f0f] border-b border-white/6 flex-shrink-0 safe-top">
-        <div className="flex items-center gap-2.5">
-          {/* Back button on mobile */}
-          {(mobileView === "brief" || mobileView === "digest" || mobileView === "plan") && (
+      <header className="flex items-center justify-between px-4 py-3 bg-[#0f0f0f] border-b border-white/6 flex-shrink-0 safe-top">
+        <div className="flex items-center gap-2">
+          {showBriefView && (
             <button
-              onClick={() => setMobileView("meetings")}
-              className="md:hidden -ml-1 p-1.5 rounded-lg hover:bg-white/6 text-zinc-400 mr-0.5 transition-colors"
+              onClick={handleBack}
+              className="p-1.5 -ml-1 rounded-lg hover:bg-white/6 text-zinc-500 hover:text-zinc-300 transition-all mr-1"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
@@ -77,125 +84,110 @@ export default function Home() {
             </svg>
           </div>
           <span className="font-semibold text-zinc-100 text-sm tracking-tight">
-            {mobileView === "brief" && selectedMeeting
-              ? <span className="truncate max-w-[180px] block text-zinc-300">{selectedMeeting.title}</span>
-              : mobileView === "digest" ? "Today"
+            {showBriefView && selectedMeeting
+              ? <span className="truncate max-w-[200px] block text-zinc-300 text-xs">{selectedMeeting.title}</span>
               : "Pocket PA"}
           </span>
         </div>
 
-        <div className="flex items-center gap-1">
-          <button
-            onClick={() => setMobileView(mobileView === "plan" ? "meetings" : "plan")}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
-              mobileView === "plan"
-                ? "bg-violet-600 text-white shadow-lg shadow-violet-900/30"
-                : "text-zinc-400 hover:text-zinc-200 hover:bg-white/6"
-            }`}
-          >
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
-            </svg>
-            Plan
-          </button>
-          <button
-            onClick={() => setMobileView(mobileView === "digest" ? "meetings" : "digest")}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
-              mobileView === "digest"
-                ? "bg-violet-600 text-white shadow-lg shadow-violet-900/30"
-                : "text-zinc-400 hover:text-zinc-200 hover:bg-white/6"
-            }`}
-          >
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 0 1 0 3.75H5.625a1.875 1.875 0 0 1 0-3.75Z" />
-            </svg>
-            Today
-          </button>
-          <Link
-            href="/settings"
-            className="p-1.5 rounded-lg text-zinc-500 hover:text-zinc-300 hover:bg-white/6 transition-all"
-          >
-            <svg className="w-[17px] h-[17px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z" />
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-            </svg>
-          </Link>
-          <SignInButton compact />
+        {/* Desktop tab strip */}
+        <div className="hidden md:flex items-center gap-1 bg-zinc-900 rounded-xl p-1">
+          {(["snapshot", "plan", "contacts", "settings"] as Tab[]).map(t => (
+            <button
+              key={t}
+              onClick={() => { setTab(t); handleBack(); }}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all capitalize ${
+                tab === t ? "bg-zinc-700 text-zinc-100" : "text-zinc-500 hover:text-zinc-300"
+              }`}
+            >
+              {t === "snapshot" ? "Today" : t}
+            </button>
+          ))}
         </div>
       </header>
 
-      {/* Body */}
+      {/* Main content */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Digest view */}
-        {mobileView === "digest" && (
-          <div className="w-full flex flex-1 overflow-hidden">
-            <div className="hidden md:flex w-72 flex-shrink-0 border-r border-white/6 flex-col bg-[#0f0f0f]">
-              <div className="px-4 pt-5 pb-2">
-                <h2 className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest">Meetings</h2>
-              </div>
-              <div className="flex-1 overflow-y-auto">
-                <MeetingList selectedId={selectedMeeting?.id ?? null} onSelect={(m) => { handleSelectMeeting(m); }} />
-              </div>
-            </div>
-            <div className="flex-1 overflow-y-auto">
-              <DigestPanel />
-            </div>
-          </div>
-        )}
 
-        {/* Plan view */}
-        {mobileView === "plan" && (
-          <div className="w-full flex flex-1 overflow-hidden">
-            <div className="hidden md:flex w-72 flex-shrink-0 border-r border-white/6 flex-col bg-[#0f0f0f]">
-              <div className="px-4 pt-5 pb-2">
-                <h2 className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest">Meetings</h2>
-              </div>
+        {/* Brief overlay (full screen on mobile, right panel on desktop) */}
+        {showBriefView && (
+          <div className="w-full md:flex-1 flex flex-col overflow-hidden">
+            {researching && selectedMeeting && (
+              <AgentProgress meeting={selectedMeeting} onBriefReady={handleBriefReady} />
+            )}
+            {!researching && brief && (
               <div className="flex-1 overflow-y-auto">
-                <MeetingList selectedId={selectedMeeting?.id ?? null} onSelect={handleSelectMeeting} />
-              </div>
-            </div>
-            <div className="flex-1 overflow-hidden flex flex-col">
-              <DayPlanner />
-            </div>
-          </div>
-        )}
-
-        {/* Normal layout */}
-        {mobileView !== "digest" && mobileView !== "plan" && (
-          <>
-            <div className={`w-full md:w-72 md:flex-shrink-0 border-r border-white/6 flex flex-col bg-[#0f0f0f] ${mobileView === "brief" ? "hidden md:flex" : "flex"}`}>
-              <div className="px-4 pt-5 pb-2">
-                <h2 className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest">Meetings</h2>
-              </div>
-              <div className="flex-1 overflow-y-auto">
-                <MeetingList selectedId={selectedMeeting?.id ?? null} onSelect={handleSelectMeeting} />
-              </div>
-            </div>
-
-            <div className={`flex-1 overflow-y-auto ${mobileView === "meetings" ? "hidden md:block" : "block"}`}>
-              {!selectedMeeting && (
-                <div className="flex flex-col items-center justify-center h-full text-center px-6 gap-3">
-                  <div className="w-12 h-12 bg-zinc-900 rounded-2xl border border-white/6 flex items-center justify-center">
-                    <svg className="w-5 h-5 text-zinc-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="font-medium text-zinc-400 text-sm">Select a meeting</p>
-                    <p className="text-xs text-zinc-600 mt-1">Tap any meeting to generate a research brief</p>
-                  </div>
-                </div>
-              )}
-              {selectedMeeting && researching && (
-                <AgentProgress meeting={selectedMeeting} onBriefReady={handleBriefReady} />
-              )}
-              {selectedMeeting && !researching && brief && (
                 <BriefPanel brief={brief} />
-              )}
-            </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Normal tab content */}
+        {!showBriefView && (
+          <>
+            {/* Desktop sidebar on snapshot */}
+            {tab === "snapshot" && (
+              <div className="hidden md:flex flex-col w-full overflow-hidden">
+                <SnapshotView onSelectMeeting={m => { setTab("snapshot"); handleSelectMeeting(m); }} />
+              </div>
+            )}
+
+            {/* Mobile snapshot */}
+            {tab === "snapshot" && (
+              <div className="flex flex-col w-full overflow-hidden md:hidden">
+                <SnapshotView onSelectMeeting={handleSelectMeeting} />
+              </div>
+            )}
+
+            {tab === "plan" && (
+              <div className="flex-1 overflow-hidden flex flex-col">
+                <DayPlanner />
+              </div>
+            )}
+
+            {tab === "contacts" && (
+              <div className="flex-1 overflow-hidden flex flex-col">
+                <ContactList />
+              </div>
+            )}
+
+            {tab === "settings" && (
+              <div className="flex-1 overflow-y-auto">
+                <div className="px-4 py-6 max-w-lg mx-auto space-y-6">
+                  {/* Profile */}
+                  <div className="bg-[#141414] border border-white/6 rounded-2xl px-4 py-4 flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                      {session.user?.name?.[0]?.toUpperCase() ?? session.user?.email?.[0]?.toUpperCase() ?? "?"}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-zinc-200 truncate">{session.user?.name ?? "Your account"}</p>
+                      <p className="text-xs text-zinc-600 truncate">{session.user?.email}</p>
+                    </div>
+                  </div>
+
+                  {/* Calendars */}
+                  <div>
+                    <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest mb-3">Calendars</p>
+                    <ConnectedCalendars showOnboardingPrompt />
+                  </div>
+
+                  {/* Sign out */}
+                  <button
+                    onClick={() => signOut({ callbackUrl: "/auth/signin" })}
+                    className="w-full py-3 rounded-2xl border border-red-500/20 text-sm font-medium text-red-400 hover:bg-red-500/8 transition-all"
+                  >
+                    Sign out
+                  </button>
+                </div>
+              </div>
+            )}
           </>
         )}
       </div>
+
+      {/* Bottom nav (mobile only) */}
+      <BottomNav active={showBriefView ? tab : tab} onChange={t => { setTab(t); handleBack(); }} />
     </div>
   );
 }
