@@ -108,6 +108,7 @@ export default function DayPlanner() {
           attendees: (block as any).attendees,
           location: (block as any).location,
           timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          activityType: block.type,
         }),
       });
       const data = await res.json();

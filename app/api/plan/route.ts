@@ -59,7 +59,7 @@ export async function GET(req: Request) {
     title: m.title,
     start: m.startAt.toISOString(),
     end: m.endAt.toISOString(),
-    type: "meeting" as ActivityType,
+    type: (m.activityType ?? "meeting") as ActivityType,
     description: m.description ?? undefined,
   }));
 

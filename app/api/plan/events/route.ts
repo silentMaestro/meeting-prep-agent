@@ -2,6 +2,7 @@ import { NextResponse, connection } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { getUserCalendarConnections, getValidAccessToken } from "@/lib/calendar-connections";
+import { db } from "@/lib/db";
 
 // POST /api/plan/events — create a calendar event
 export async function POST(req: Request) {
@@ -10,7 +11,7 @@ export async function POST(req: Request) {
   const userId = (session as any)?.dbUserId as string | undefined;
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { title, start, end, description, colorId, attendees, location, timeZone } = await req.json();
+  const { title, start, end, description, colorId, attendees, location, timeZone, activityType } = await req.json();
 
   const connections = await getUserCalendarConnections(userId);
   if (!connections.length) return NextResponse.json({ error: "No calendars connected" }, { status: 400 });
@@ -48,6 +49,35 @@ export async function POST(req: Request) {
   }
 
   const event = await res.json();
+
+  // Persist to DB so the plan survives a page refresh
+  try {
+    await db.meeting.upsert({
+      where: { userId_gcalEventId: { userId, gcalEventId: event.id } },
+      create: {
+        userId,
+        gcalEventId: event.id,
+        title,
+        startAt: new Date(start),
+        endAt: new Date(end),
+        description: description ?? null,
+        location: location ?? null,
+        activityType: activityType ?? null,
+      },
+      update: {
+        title,
+        startAt: new Date(start),
+        endAt: new Date(end),
+        description: description ?? null,
+        location: location ?? null,
+        activityType: activityType ?? null,
+      },
+    });
+  } catch (e) {
+    console.error("Failed to persist event to DB:", e);
+    // Don't fail the request — event was already created in Google Calendar
+  }
+
   return NextResponse.json({ eventId: event.id });
 }
 
@@ -76,6 +106,15 @@ export async function DELETE(req: Request) {
   if (!res.ok && res.status !== 404) {
     const err = await res.text();
     return NextResponse.json({ error: err }, { status: res.status });
+  }
+
+  // Remove from DB too
+  try {
+    await db.meeting.deleteMany({
+      where: { userId: userId2, gcalEventId: eventId },
+    });
+  } catch (e) {
+    console.error("Failed to delete event from DB:", e);
   }
 
   return NextResponse.json({ ok: true });
